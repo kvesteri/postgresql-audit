@@ -113,6 +113,16 @@ class TestActivityCreation(object):
         assert activity['transaction_id'] > 0
         assert activity['verb'] == 'insert'
 
+    def test_update_without_actual_changes_does_not_create_activity(
+        self,
+        user,
+        session
+    ):
+        user.name = 'John'
+        session.flush()
+        activity = last_activity(session)
+        assert activity['verb'] == 'insert'
+
     def test_update(self, user, session):
         user.name = 'Luke'
         session.flush()
