@@ -39,11 +39,14 @@ def session(connection):
     session.close_all()
 
 
-@pytest.fixture(scope='module')
+@pytest.yield_fixture(scope='module')
 def schema(session):
     with open('schema.sql') as f:
         sql = f.read()
     session.execute(sql.decode('utf8'))
+    yield
+    session.execute('DROP SCHEMA audit CASCADE')
+    session.commit()
 
 
 @pytest.fixture(scope='module')
@@ -96,6 +99,18 @@ def last_activity(connection):
             'SELECT * FROM audit.activity ORDER BY issued_at DESC LIMIT 1'
         ).fetchone()
     )
+
+
+@pytest.yield_fixture
+def activity_values(session):
+    session.execute(
+        '''CREATE TEMP TABLE activity_values
+        ON COMMIT DELETE ROWS AS
+        SELECT * FROM audit.activity WHERE 1 = 2
+        '''
+    )
+    yield
+    session.execute('DROP TABLE activity_values')
 
 
 @pytest.mark.usefixtures('schema', 'table_creator')
@@ -152,3 +167,21 @@ class TestActivityCreation(object):
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
         assert activity['verb'] == 'delete'
+
+    @pytest.mark.parametrize(
+        ('field', 'value'),
+        (
+            ('target_id', '1'),
+            ('actor_id', '1')
+        )
+    )
+    def test_custom_fields(self, activity_values, session, user, field, value):
+        session.execute(
+            '''INSERT INTO activity_values ({0}) VALUES ({1})'''.format(
+                field, value
+            )
+        )
+        session.delete(user)
+        session.commit()
+        activity = last_activity(session)
+        assert activity[field] == value

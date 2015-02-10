@@ -38,23 +38,21 @@ COMMENT ON SCHEMA audit IS 'Out-of-table audit/history logging tables and trigge
 --
 CREATE TABLE audit.activity (
     event_id bigserial primary key,
-    schema_name text not null,
-    table_name text not null,
-    relid oid not null,
+    schema_name text,
+    table_name text,
+    relid oid,
     session_user_name text,
-    issued_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    issued_at TIMESTAMP WITH TIME ZONE,
     transaction_id bigint,
     application_name text,
     client_addr inet,
     client_port integer,
-    client_query text,
-    verb TEXT NOT NULL,
+    verb TEXT,
     actor_id TEXT,
     object_id TEXT,
     target_id TEXT,
     row_data hstore,
-    changed_fields hstore,
-    statement_only boolean not null
+    changed_fields hstore
 );
 
 REVOKE ALL ON audit.activity FROM public;
@@ -69,12 +67,10 @@ COMMENT ON COLUMN audit.activity.issued_at IS 'Statement start timestamp for tx 
 COMMENT ON COLUMN audit.activity.transaction_id IS 'Identifier of transaction that made the change. May wrap, but unique paired with action_tstamp_tx.';
 COMMENT ON COLUMN audit.activity.client_addr IS 'IP address of client that issued query. Null for unix domain socket.';
 COMMENT ON COLUMN audit.activity.client_port IS 'Remote peer IP port address of client that issued query. Undefined for unix socket.';
-COMMENT ON COLUMN audit.activity.client_query IS 'Top-level query that caused this auditable event. May be more than one statement.';
 COMMENT ON COLUMN audit.activity.application_name IS 'Application name set when this audit event occurred. Can be changed in-session by client.';
 COMMENT ON COLUMN audit.activity.verb IS 'Action type, normally insert, update, delete or truncate';
 COMMENT ON COLUMN audit.activity.row_data IS 'Record value. Null for statement-level trigger. For INSERT this is the new tuple. For DELETE and UPDATE it is the old tuple.';
 COMMENT ON COLUMN audit.activity.changed_fields IS 'New values of fields changed by UPDATE. Null except for row-level UPDATE events.';
-COMMENT ON COLUMN audit.activity.statement_only IS '''t'' if audit event is from an FOR EACH STATEMENT trigger, ''f'' for FOR EACH ROW';
 
 CREATE INDEX activity_relid_idx ON audit.activity(relid);
 CREATE INDEX activity_issued_at_idx ON audit.activity(issued_at);
@@ -83,57 +79,68 @@ CREATE INDEX activity_verb_idx ON audit.activity(verb);
 CREATE OR REPLACE FUNCTION audit.if_modified_func() RETURNS TRIGGER AS $body$
 DECLARE
     audit_row audit.activity;
+    audit_row_values audit.activity;
     include_values boolean;
     log_diffs boolean;
     h_old hstore;
     h_new hstore;
     excluded_cols text[] = ARRAY[]::text[];
+    object_id text;
 BEGIN
     IF TG_WHEN <> 'AFTER' THEN
         RAISE EXCEPTION 'audit.if_modified_func() may only run as an AFTER trigger';
     END IF;
 
-    audit_row = ROW(
-        nextval('audit.activity_event_id_seq'),       -- event_id
-        TG_TABLE_SCHEMA::text,                        -- schema_name
-        TG_TABLE_NAME::text,                          -- table_name
-        TG_RELID,                                     -- relation OID for much quicker searches
-        session_user::text,                           -- session_user_name
-        statement_timestamp(),                        -- action_tstamp_stm
-        txid_current(),                               -- transaction ID
-        current_setting('application_name'),          -- client application
-        inet_client_addr(),                           -- client_addr
-        inet_client_port(),                           -- client_port
-        current_query(),                              -- top-level query or queries (if multistatement) from client
-        LOWER(TG_OP),                                 -- action
-        NULL,                                         -- actor_id
-        NULL,                                         -- object_id
-        NULL,                                         -- target_id
-        NULL,                                         -- row_data
-        NULL,                                         -- changed_fields
-        'f'                                           -- statement_only
-        );
-
-    IF NOT TG_ARGV[0]::boolean IS DISTINCT FROM 'f'::boolean THEN
-        audit_row.client_query = NULL;
-    END IF;
-
-    IF TG_ARGV[1] IS NOT NULL THEN
+    IF TG_ARGV[0] IS NOT NULL THEN
         IF TG_OP = 'DELETE' THEN
-            audit_row.object_id = array_to_string(
-                hstore(OLD.*) -> TG_ARGV[1]::text[],
+            object_id = array_to_string(
+                hstore(OLD.*) -> TG_ARGV[0]::text[],
                 ','
             );
         ELSE
-            audit_row.object_id = array_to_string(
-                hstore(NEW.*) -> TG_ARGV[1]::text[],
+            object_id = array_to_string(
+                hstore(NEW.*) -> TG_ARGV[0]::text[],
                 ','
             );
         END IF;
     END IF;
 
-    IF TG_ARGV[2] IS NOT NULL THEN
-        excluded_cols = TG_ARGV[2]::text[];
+    BEGIN
+        SELECT * FROM activity_values INTO audit_row_values LIMIT 1;
+    EXCEPTION WHEN others THEN
+    END;
+
+    audit_row = ROW(
+        nextval('audit.activity_event_id_seq'),         -- event_id
+        TG_TABLE_SCHEMA::text,                          -- schema_name
+        TG_TABLE_NAME::text,                            -- table_name
+        TG_RELID,                                       -- relation OID for much quicker searches
+        session_user::text,                             -- session_user_name
+        COALESCE(
+            audit_row_values.issued_at,
+            statement_timestamp()
+        ),                                              -- issued_at
+        COALESCE(
+            audit_row_values.transaction_id,
+            txid_current()
+        ),                                              -- transaction ID
+        current_setting('application_name'),            -- client application
+        inet_client_addr(),                             -- client_addr
+        inet_client_port(),                             -- client_port
+        COALESCE(audit_row_values.verb, LOWER(TG_OP)),  -- action
+        audit_row_values.actor_id,                      -- actor_id
+        COALESCE(
+            audit_row_values.object_id,
+            object_id
+        ),                                              -- object_id
+        audit_row_values.target_id,                     -- target_id
+        NULL,                                           -- row_data
+        NULL,                                           -- changed_fields
+        'f'
+    );
+
+    IF TG_ARGV[1] IS NOT NULL THEN
+        excluded_cols = TG_ARGV[1]::text[];
     END IF;
 
     IF (TG_OP = 'UPDATE' AND TG_LEVEL = 'ROW') THEN
@@ -147,8 +154,6 @@ BEGIN
         audit_row.row_data = hstore(OLD.*) - excluded_cols;
     ELSIF (TG_OP = 'INSERT' AND TG_LEVEL = 'ROW') THEN
         audit_row.row_data = hstore(NEW.*) - excluded_cols;
-    ELSIF (TG_LEVEL = 'STATEMENT' AND TG_OP IN ('INSERT','UPDATE','DELETE','TRUNCATE')) THEN
-        audit_row.statement_only = 't';
     ELSE
         RAISE EXCEPTION '[audit.if_modified_func] - Trigger func added as trigger for unhandled case: %, %',TG_OP, TG_LEVEL;
         RETURN NULL;
@@ -195,7 +200,7 @@ $body$;
 
 
 
-CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass, audit_rows boolean, audit_query_text boolean, ignored_cols text[]) RETURNS void AS $body$
+CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass, ignored_cols text[]) RETURNS void AS $body$
 DECLARE
     stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
     _q_txt text;
@@ -217,55 +222,35 @@ BEGIN
 
     EXECUTE primary_keys_q INTO primary_keys;
 
-    IF audit_rows THEN
-        IF array_length(ignored_cols,1) > 0 THEN
-            _ignored_cols_snip = ', ' || quote_literal(ignored_cols);
-        END IF;
-        _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
-                 target_table ||
-                 ' FOR EACH ROW EXECUTE PROCEDURE audit.if_modified_func(' ||
-                 quote_literal(audit_query_text) ||
-                 _ignored_cols_snip || ', ' ||
-                 quote_literal(primary_keys::text[]) ||
-                 ');';
-        RAISE NOTICE '%',_q_txt;
-        EXECUTE _q_txt;
-        stm_targets = 'TRUNCATE';
-    ELSE
+    IF array_length(ignored_cols,1) > 0 THEN
+        _ignored_cols_snip = ', ' || quote_literal(ignored_cols);
     END IF;
-
-    _q_txt = 'CREATE TRIGGER audit_trigger_stm AFTER ' || stm_targets || ' ON ' ||
+    _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
              target_table ||
-             ' FOR EACH STATEMENT EXECUTE PROCEDURE audit.if_modified_func('||
-             quote_literal(audit_query_text) || ');';
+             ' FOR EACH ROW EXECUTE PROCEDURE audit.if_modified_func(' ||
+             _ignored_cols_snip || ', ' ||
+             quote_literal(primary_keys::text[]) ||
+             ');';
     RAISE NOTICE '%',_q_txt;
     EXECUTE _q_txt;
-
+    stm_targets = 'TRUNCATE';
 END;
 $body$
 language 'plpgsql';
 
-COMMENT ON FUNCTION audit.audit_table(regclass, boolean, boolean, text[]) IS $body$
+COMMENT ON FUNCTION audit.audit_table(regclass, text[]) IS $body$
 Add auditing support to a table.
 
 Arguments:
    target_table:     Table name, schema qualified if not on search_path
-   audit_rows:       Record each row change, or only audit at a statement level
-   audit_query_text: Record the text of the client query that triggered the audit event?
    ignored_cols:     Columns to exclude from update diffs, ignore updates that change only ignored cols.
 $body$;
 
--- Pg doesn't allow variadic calls with 0 params, so provide a wrapper
-CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass, audit_rows boolean, audit_query_text boolean) RETURNS void AS $body$
-SELECT audit.audit_table($1, $2, $3, ARRAY[]::text[]);
+
+CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass) RETURNS void AS $body$
+SELECT audit.audit_table($1, ARRAY[]::text[]);
 $body$ LANGUAGE SQL;
 
--- And provide a convenience call wrapper for the simplest case
--- of row-level logging with no excluded cols and query logging enabled.
---
-CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass) RETURNS void AS $$
-SELECT audit.audit_table($1, BOOLEAN 't', BOOLEAN 't');
-$$ LANGUAGE 'sql';
 
 COMMENT ON FUNCTION audit.audit_table(regclass) IS $body$
 Add auditing support to the given table. Row-level changes will be logged with full client query text. No cols are ignored.
