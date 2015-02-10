@@ -185,3 +185,62 @@ class TestActivityCreation(object):
         session.commit()
         activity = last_activity(session)
         assert activity[field] == value
+
+
+@pytest.mark.usefixtures('schema', 'table_creator')
+class TestActivityCreationWithColumnExclusion(object):
+    @pytest.fixture
+    def audit_trigger_creator(self, session, user_class):
+        session.execute(
+            '''SELECT audit.audit_table('{0}', '{{"age"}}')'''.format(
+                user_class.__tablename__
+            )
+        )
+
+    @pytest.fixture
+    def user(self, session, user_class, audit_trigger_creator):
+        user = user_class(name='John', age=15)
+        session.add(user)
+        session.flush()
+        return user
+
+    def test_insert(self, user, connection):
+        activity = last_activity(connection)
+        assert activity['object_id'] == str(user.id)
+        assert activity['changed_fields'] is None
+        assert activity['row_data'] == {
+            'id': str(user.id),
+            'name': 'John'
+        }
+        assert activity['table_name'] == 'user'
+        assert activity['transaction_id'] > 0
+        assert activity['verb'] == 'insert'
+
+    def test_update(self, user, session):
+        user.name = 'Luke'
+        user.age = 18
+        session.flush()
+        activity = last_activity(session)
+        assert activity['object_id'] == str(user.id)
+        assert activity['changed_fields'] == {'name': 'Luke'}
+        assert activity['row_data'] == {
+            'id': str(user.id),
+            'name': 'John',
+        }
+        assert activity['table_name'] == 'user'
+        assert activity['transaction_id'] > 0
+        assert activity['verb'] == 'update'
+
+    def test_delete(self, user, session):
+        session.delete(user)
+        session.flush()
+        activity = last_activity(session)
+        assert activity['object_id'] == str(user.id)
+        assert activity['changed_fields'] is None
+        assert activity['row_data'] == {
+            'id': str(user.id),
+            'name': 'John',
+        }
+        assert activity['table_name'] == 'user'
+        assert activity['transaction_id'] > 0
+        assert activity['verb'] == 'delete'

@@ -144,7 +144,7 @@ BEGIN
     END IF;
 
     IF (TG_OP = 'UPDATE' AND TG_LEVEL = 'ROW') THEN
-        audit_row.row_data = hstore(OLD.*);
+        audit_row.row_data = hstore(OLD.*) - excluded_cols;
         audit_row.changed_fields =  (hstore(NEW.*) - audit_row.row_data) - excluded_cols;
         IF audit_row.changed_fields = hstore('') THEN
             -- All changed fields are ignored. Skip this update.
@@ -228,8 +228,8 @@ BEGIN
     _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
              target_table ||
              ' FOR EACH ROW EXECUTE PROCEDURE audit.if_modified_func(' ||
-             _ignored_cols_snip || ', ' ||
              quote_literal(primary_keys::text[]) ||
+             _ignored_cols_snip ||
              ');';
     RAISE NOTICE '%',_q_txt;
     EXECUTE _q_txt;
