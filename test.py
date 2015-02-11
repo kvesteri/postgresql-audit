@@ -41,9 +41,16 @@ def session(connection):
 
 @pytest.yield_fixture(scope='module')
 def schema(session):
-    with open('schema.sql') as f:
-        sql = f.read()
-    session.execute(sql.decode('utf8'))
+    files = [
+        'schema.sql',
+        'activity.sql',
+        'create_activity.sql',
+        'audit_table.sql'
+    ]
+    for file_ in files:
+        with open(file_) as f:
+            sql = f.read()
+        session.execute(sql.decode('utf8'))
     yield
     session.execute('DROP SCHEMA audit CASCADE')
     session.commit()
