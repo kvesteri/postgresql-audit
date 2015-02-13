@@ -77,7 +77,7 @@ BEGIN
     ELSIF (TG_OP = 'INSERT' AND TG_LEVEL = 'ROW') THEN
         audit_row.row_data = hstore(NEW.*) - excluded_cols;
     ELSE
-        RAISE EXCEPTION '[audit.create_activity] - Trigger func added as trigger for unhandled case: %, %',TG_OP, TG_LEVEL;
+        RAISE EXCEPTION '[audit.create_activity] - Trigger func added as trigger for unhandled case: %, %', TG_OP, TG_LEVEL;
         RETURN NULL;
     END IF;
     INSERT INTO audit.activity VALUES (audit_row.*);
