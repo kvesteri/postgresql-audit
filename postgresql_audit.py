@@ -8,7 +8,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1'
+__version__ = '0.1.1'
 
 
 @compiles(CreateTable)
