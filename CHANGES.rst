@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.1.3 (2015-02-17)
+^^^^^^^^^^^^^^^^^^
+
+- Made all file reads use absolute paths
+
+
 0.1.2 (2015-02-17)
 ^^^^^^^^^^^^^^^^^^
 
