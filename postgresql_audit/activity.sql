@@ -17,20 +17,20 @@
 -- indexes and do your analysis.
 --
 CREATE TABLE audit.activity (
-    id bigserial primary key,
-    schema_name text,
-    table_name text,
-    relid oid,
+    id BIGSERIAL primary key,
+    schema_name TEXT,
+    table_name TEXT,
+    relid OID,
     issued_at TIMESTAMP WITH TIME ZONE,
-    transaction_id bigint,
-    client_addr inet,
-    client_port integer,
+    transaction_id BIGINT,
+    client_addr INET,
+    client_port INTEGER,
     verb TEXT,
     actor_id TEXT,
     object_id TEXT,
     target_id TEXT,
-    row_data hstore,
-    changed_fields hstore
+    row_data HSTORE,
+    changed_fields HSTORE
 );
 
 REVOKE ALL ON audit.activity FROM public;
