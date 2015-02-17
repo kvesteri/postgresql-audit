@@ -54,6 +54,16 @@ def activity_base(base):
         row_data = sa.Column(HSTORE)
         changed_fields = sa.Column(HSTORE)
 
+        def __repr__(self):
+            return (
+                '<{cls} table_name={table_name!r} '
+                'event_id={event_id!r}>'
+            ).format(
+                cls=self.__class__.__name__,
+                table_name=self.table_name,
+                event_id=self.event_id
+            )
+
     return ActivityBase
 
 

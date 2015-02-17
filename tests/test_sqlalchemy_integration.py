@@ -141,3 +141,8 @@ class TestActivityCreation(object):
     def test_connection_cleaning(self, user_class, connection):
         assert len(versioning_manager.connections_with_tables) == 1
         assert len(versioning_manager.connections_with_tables_row) == 1
+
+    def test_activity_repr(self, activity_cls):
+        assert repr(activity_cls(event_id=3, table_name='user')) == (
+            "<Activity table_name='user' event_id=3>"
+        )
