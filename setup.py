@@ -25,6 +25,7 @@ def get_version():
 
 extras_require = {
     'test': [
+        'flexmock==0.9.7',
         'pytest>=2.3.5',
         'psycopg2>=2.4.6',
     ],
