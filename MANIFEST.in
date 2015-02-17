@@ -1,4 +1,5 @@
-include CHANGES.rst LICENSE README.rst activity.sql audit_table.sql conftest.py create_activity.sql schema.sql postgresql_audit.py
+include CHANGES.rst LICENSE README.rst conftest.py
+recursive-include postgresql_audit
 recursive-include tests *
 recursive-exclude tests *.pyc
 recursive-include docs *

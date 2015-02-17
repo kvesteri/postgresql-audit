@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def get_version():
-    filename = os.path.join(HERE, 'postgresql_audit.py')
+    filename = os.path.join(HERE, 'postgresql_audit', '__init__.py')
     with open(filename) as f:
         contents = f.read()
     pattern = r"^__version__ = '(.*?)'$"
