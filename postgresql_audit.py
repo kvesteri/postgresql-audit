@@ -5,6 +5,7 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import HSTORE, INET
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable
 
 
@@ -94,7 +95,7 @@ class VersioningManager(object):
     ]
 
     def __init__(self):
-        self.base = sa.ext.declarative.declarative_base()
+        self.base = declarative_base()
         self.values = {}
         self.connections_with_tables = WeakSet()
         self.connections_with_tables_row = WeakSet()
