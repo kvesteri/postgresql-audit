@@ -17,7 +17,7 @@
 -- indexes and do your analysis.
 --
 CREATE TABLE audit.activity (
-    event_id bigserial primary key,
+    id bigserial primary key,
     schema_name text,
     table_name text,
     relid oid,
@@ -36,7 +36,7 @@ CREATE TABLE audit.activity (
 REVOKE ALL ON audit.activity FROM public;
 
 COMMENT ON TABLE audit.activity IS 'History of auditable actions on audited tables, from audit.create_activity()';
-COMMENT ON COLUMN audit.activity.event_id IS 'Unique identifier for each auditable event';
+COMMENT ON COLUMN audit.activity.id IS 'Unique identifier for each auditable event';
 COMMENT ON COLUMN audit.activity.schema_name IS 'Database schema audited table for this event is in';
 COMMENT ON COLUMN audit.activity.table_name IS 'Non-schema-qualified table name of table event occured in';
 COMMENT ON COLUMN audit.activity.relid IS 'Table OID. Changes with drop/create. Get with ''tablename''::regclass';

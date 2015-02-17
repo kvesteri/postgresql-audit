@@ -33,7 +33,7 @@ BEGIN
     END;
 
     audit_row = ROW(
-        nextval('audit.activity_event_id_seq'),         -- event_id
+        nextval('audit.activity_id_seq'),               -- id
         TG_TABLE_SCHEMA::text,                          -- schema_name
         TG_TABLE_NAME::text,                            -- table_name
         TG_RELID,                                       -- relation OID for much quicker searches

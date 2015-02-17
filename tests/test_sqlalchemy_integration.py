@@ -143,6 +143,6 @@ class TestActivityCreation(object):
         assert len(versioning_manager.connections_with_tables_row) == 1
 
     def test_activity_repr(self, activity_cls):
-        assert repr(activity_cls(event_id=3, table_name='user')) == (
-            "<Activity table_name='user' event_id=3>"
+        assert repr(activity_cls(id=3, table_name='user')) == (
+            "<Activity table_name='user' id=3>"
         )

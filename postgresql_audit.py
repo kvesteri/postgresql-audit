@@ -39,7 +39,7 @@ def read_file(file_):
 def activity_base(base):
     class ActivityBase(base):
         __abstract__ = True
-        event_id = sa.Column(sa.BigInteger, primary_key=True)
+        id = sa.Column(sa.BigInteger, primary_key=True)
         schema_name = sa.Column(sa.Text)
         table_name = sa.Column(sa.Text)
         relid = sa.Column(sa.Integer)
@@ -57,11 +57,11 @@ def activity_base(base):
         def __repr__(self):
             return (
                 '<{cls} table_name={table_name!r} '
-                'event_id={event_id!r}>'
+                'id={id!r}>'
             ).format(
                 cls=self.__class__.__name__,
                 table_name=self.table_name,
-                event_id=self.event_id
+                id=self.id
             )
 
     return ActivityBase
