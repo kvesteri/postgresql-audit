@@ -33,7 +33,7 @@ def raw_execute(conn, stmt):
 def read_file(file_):
     with open(file_) as f:
         s = f.read()
-    return s.decode('utf8')
+    return s
 
 
 def activity_base(base):
