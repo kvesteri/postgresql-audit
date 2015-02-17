@@ -26,17 +26,8 @@ def get_version():
 extras_require = {
     'test': [
         'pytest>=2.3.5',
-        'flexmock>=0.9.7',
         'psycopg2>=2.4.6',
-        'PyMySQL==0.6.1',
-        'six>=1.4.0'
     ],
-    'anyjson': ['anyjson>=0.3.3'],
-    'flask': ['Flask>=0.9'],
-    'flask-login': ['Flask-Login>=0.2.9'],
-    'flask-sqlalchemy': ['Flask-SQLAlchemy>=1.0'],
-    'flexmock': ['flexmock>=0.9.7'],
-    'i18n': ['SQLAlchemy-i18n>=0.8.4'],
 }
 
 
