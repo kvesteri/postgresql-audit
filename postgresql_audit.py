@@ -1,3 +1,4 @@
+import os
 import re
 from contextlib import contextmanager
 from weakref import WeakSet
@@ -10,6 +11,7 @@ from sqlalchemy.schema import CreateTable
 
 
 __version__ = '0.1.2'
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 @compiles(CreateTable)
@@ -32,7 +34,7 @@ def raw_execute(conn, stmt):
 
 
 def read_file(file_):
-    with open(file_) as f:
+    with open(os.path.join(HERE, file_)) as f:
         s = f.read()
     return s
 

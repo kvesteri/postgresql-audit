@@ -5,6 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from postgresql_audit import read_file
+
 
 @pytest.fixture(scope='module')
 def dns():
@@ -51,9 +53,7 @@ def schema(session):
         'audit_table.sql'
     ]
     for file_ in files:
-        with open(file_) as f:
-            sql = f.read()
-        session.execute(sql)
+        session.execute(read_file(file_))
     session.commit()
     yield
     session.execute('DROP SCHEMA audit CASCADE')
