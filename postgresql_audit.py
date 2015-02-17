@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 
 @compiles(CreateTable)
