@@ -101,6 +101,16 @@ class VersioningManager(object):
         self.values = {}
         self.connections_with_tables = WeakSet()
         self.connections_with_tables_row = WeakSet()
+        self.pool_listener_args = (
+            sa.pool.Pool,
+            'checkin',
+            self.connection_listener
+        )
+        self.engine_listener_args = (
+            sa.engine.Engine,
+            'before_cursor_execute',
+            self.before_cursor_execute
+        )
 
     def attach_table_listeners(self):
         for values in self.table_listeners:
@@ -154,29 +164,13 @@ class VersioningManager(object):
 
     def attach_listeners(self):
         self.attach_table_listeners()
-        sa.event.listen(
-            sa.engine.Engine,
-            'before_cursor_execute',
-            self.before_cursor_execute
-        )
-        sa.event.listen(
-            sa.pool.Pool,
-            'checkin',
-            self.connection_listener
-        )
+        sa.event.listen(*self.engine_listener_args)
+        sa.event.listen(*self.pool_listener_args)
 
     def remove_listeners(self):
         self.remove_table_listeners()
-        sa.event.remove(
-            sa.engine.Engine,
-            'before_cursor_execute',
-            self.before_cursor_execute
-        )
-        sa.event.remove(
-            sa.pool.Pool,
-            'checkin',
-            self.connection_listener
-        )
+        sa.event.remove(*self.engine_listener_args)
+        sa.event.remove(*self.pool_listener_args)
 
     def activity_model_factory(self, base):
         class Activity(activity_base(base)):
