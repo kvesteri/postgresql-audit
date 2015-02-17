@@ -37,7 +37,6 @@ BEGIN
         TG_TABLE_SCHEMA::text,                          -- schema_name
         TG_TABLE_NAME::text,                            -- table_name
         TG_RELID,                                       -- relation OID for much quicker searches
-        session_user::text,                             -- session_user_name
         COALESCE(
             audit_row_values.issued_at,
             statement_timestamp()
@@ -46,7 +45,6 @@ BEGIN
             audit_row_values.transaction_id,
             txid_current()
         ),                                              -- transaction ID
-        current_setting('application_name'),            -- client application
         inet_client_addr(),                             -- client_addr
         inet_client_port(),                             -- client_port
         COALESCE(audit_row_values.verb, LOWER(TG_OP)),  -- action
