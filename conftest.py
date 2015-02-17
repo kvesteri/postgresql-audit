@@ -53,7 +53,7 @@ def schema(session):
     for file_ in files:
         with open(file_) as f:
             sql = f.read()
-        session.execute(sql.decode('utf8'))
+        session.execute(sql)
     session.commit()
     yield
     session.execute('DROP SCHEMA audit CASCADE')
