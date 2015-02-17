@@ -6,13 +6,11 @@ Versioning and auditing extension for PostgreSQL and SQLAlchemy.
 """
 
 import os
-import sys
 import re
 from setuptools import setup
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PY3 = sys.version_info[0] == 3
 
 
 def get_version():
