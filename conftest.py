@@ -16,7 +16,7 @@ def base():
     return declarative_base()
 
 
-@pytest.yield_fixture(scope='module')
+@pytest.yield_fixture()
 def engine(dns):
     engine = create_engine(dns)
     # engine.echo = True
@@ -24,7 +24,7 @@ def engine(dns):
     engine.dispose()
 
 
-@pytest.yield_fixture(scope='module')
+@pytest.yield_fixture()
 def connection(engine):
     conn = engine.connect()
     conn.execute('DROP SCHEMA IF EXISTS audit CASCADE')
@@ -33,7 +33,7 @@ def connection(engine):
     conn.close()
 
 
-@pytest.yield_fixture(scope='module')
+@pytest.yield_fixture()
 def session(connection):
     Session = sessionmaker(bind=connection)
     session = Session()
@@ -42,7 +42,7 @@ def session(connection):
     session.close_all()
 
 
-@pytest.yield_fixture(scope='module')
+@pytest.yield_fixture()
 def schema(session):
     files = [
         'schema.sql',
@@ -88,11 +88,12 @@ def models(user_class, article_class):
 def table_creator(base, connection, session, models):
     sa.orm.configure_mappers()
     base.metadata.create_all(connection, checkfirst=True)
+    tx = connection.begin()
     for model in models:
         connection.execute(
             "SELECT audit.audit_table('{0}')".format(model.__tablename__)
         )
-    session.commit()
+    tx.commit()
     yield
     base.metadata.drop_all(connection)
 

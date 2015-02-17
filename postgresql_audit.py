@@ -1,5 +1,6 @@
 import re
 from contextlib import contextmanager
+from weakref import WeakSet
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import HSTORE, INET
@@ -21,6 +22,12 @@ def _add_if_not_exists(element, compiler, **kw):
             re.DOTALL
         )
     return output
+
+
+def raw_execute(conn, stmt):
+    cursor = conn.connection.cursor()
+    compiled = stmt.compile(conn.engine)
+    return cursor.execute(str(compiled), compiled.params)
 
 
 def read_file(file_):
@@ -77,11 +84,12 @@ class VersioningManager(object):
             sa.schema.DDL('DROP SCHEMA audit CASCADE')
         )
     ]
-    tables_with_row = set()
 
     def __init__(self):
         self.base = sa.ext.declarative.declarative_base()
         self.values = {}
+        self.connections_with_tables = WeakSet()
+        self.connections_with_tables_row = WeakSet()
 
     def attach_table_listeners(self):
         for values in self.table_listeners:
@@ -92,20 +100,30 @@ class VersioningManager(object):
             sa.event.remove(self.activity_cls.__table__, *values)
 
     def set_activity_values(self, conn, **kwargs):
-        if conn not in self.tables_with_row:
+        raw_conn = conn.connection.connection
+        if raw_conn not in self.connections_with_tables_row:
             stmt = self.table.insert()
-            self.tables_with_row.add(conn)
+            self.connections_with_tables_row.add(raw_conn)
         else:
             stmt = self.table.update()
 
         # Use raw cursor so that SQLAlchemy events are not invoked
-        cursor = conn.connection.cursor()
-        compiled = stmt.values(**kwargs).compile(conn.engine)
-        cursor.execute(str(compiled), compiled.params)
+        raw_execute(conn, stmt.values(**kwargs))
 
     def reset_activity_values(self, conn):
-        conn.execute(self.table.delete())
-        self.tables_with_row.remove(conn)
+        raw_execute(conn, self.table.delete())
+        self.connections_with_tables_row.remove(conn.connection.connection)
+
+    def connection_listener(self, dbapi_connection, connection_record):
+        self.connections_with_tables.discard(dbapi_connection)
+        self.connections_with_tables_row.discard(dbapi_connection)
+
+    def create_temp_table(self, cursor, conn):
+        cursor.execute(
+            str(CreateTable(self.table).compile(conn.engine))
+            +
+            ' ON COMMIT PRESERVE ROWS'
+        )
 
     def before_cursor_execute(
         self,
@@ -116,11 +134,10 @@ class VersioningManager(object):
         context,
         executemany
     ):
-        cursor.execute(
-            str(CreateTable(self.table).compile(conn.engine))
-            +
-            ' ON COMMIT DELETE ROWS'
-        )
+        raw_conn = conn.connection.connection
+        if raw_conn not in self.connections_with_tables:
+            self.create_temp_table(cursor, conn)
+            self.connections_with_tables.add(raw_conn)
         if self.values:
             self.set_activity_values(conn, **self.values)
 
@@ -131,6 +148,11 @@ class VersioningManager(object):
             'before_cursor_execute',
             self.before_cursor_execute
         )
+        sa.event.listen(
+            sa.pool.Pool,
+            'checkin',
+            self.connection_listener
+        )
 
     def remove_listeners(self):
         self.remove_table_listeners()
@@ -139,12 +161,20 @@ class VersioningManager(object):
             'before_cursor_execute',
             self.before_cursor_execute
         )
+        sa.event.remove(
+            sa.pool.Pool,
+            'checkin',
+            self.connection_listener
+        )
 
-    def activity_models_factory(self, base):
+    def activity_model_factory(self, base):
         class Activity(activity_base(base)):
             __tablename__ = 'activity'
             __table_args__ = {'schema': 'audit'}
 
+        return Activity
+
+    def activity_values_model_factory(self):
         class ActivityValues(activity_base(self.base)):
             __tablename__ = 'activity_values'
             __table_args__ = {
@@ -152,18 +182,14 @@ class VersioningManager(object):
                 'info': {'ifexists': True}
             }
 
-        self.activity_cls = Activity
         self.activity_values_cls = ActivityValues
         self.table = self.activity_values_cls.__table__
-        return [Activity, ActivityValues]
+        return ActivityValues
+
+    def init(self, base):
+        self.activity_cls = self.activity_model_factory(base)
+        self.activity_values_cls = self.activity_values_model_factory()
+        self.attach_listeners()
 
 
 versioning_manager = VersioningManager()
-
-
-def make_versioned(actor_id_callback=None):
-    pass
-
-
-def remove_versioning():
-    pass
