@@ -46,6 +46,7 @@ setup(
     description=(
         'Versioning and auditing extension for PostgreSQL and SQLAlchemy.'
     ),
+    py_modules=['postgresql_audit'],
     long_description=__doc__,
     zip_safe=False,
     include_package_data=True,
