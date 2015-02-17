@@ -47,7 +47,3 @@ COMMENT ON COLUMN audit.activity.client_port IS 'Remote peer IP port address of 
 COMMENT ON COLUMN audit.activity.verb IS 'Action type, normally insert, update, delete or truncate';
 COMMENT ON COLUMN audit.activity.row_data IS 'Record value. Null for statement-level trigger. For INSERT this is the new tuple. For DELETE and UPDATE it is the old tuple.';
 COMMENT ON COLUMN audit.activity.changed_fields IS 'New values of fields changed by UPDATE. Null except for row-level UPDATE events.';
-
-CREATE INDEX activity_relid_idx ON audit.activity(relid);
-CREATE INDEX activity_issued_at_idx ON audit.activity(issued_at);
-CREATE INDEX activity_verb_idx ON audit.activity(verb);

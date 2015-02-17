@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.1.2 (2015-02-17)
+^^^^^^^^^^^^^^^^^^
+
+- Removed all default indexes from activity table
+
+
 0.1.1 (2015-02-17)
 ^^^^^^^^^^^^^^^^^^
 
