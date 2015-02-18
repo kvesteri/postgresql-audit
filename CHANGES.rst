@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.1.7 (2015-02-18)
+^^^^^^^^^^^^^^^^^^
+
+- Removed foreign key from actor_id in Activity model
+
+
 0.1.6 (2015-02-18)
 ^^^^^^^^^^^^^^^^^^
 

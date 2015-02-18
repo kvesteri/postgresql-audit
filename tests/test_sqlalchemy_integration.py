@@ -5,7 +5,9 @@ from flexmock import flexmock
 from sqlalchemy.ext.declarative import declarative_base
 
 from postgresql_audit import (
+    activity_base,
     activity_values,
+    assign_actor,
     versioning_manager,
     VersioningManager
 )
@@ -189,3 +191,25 @@ class TestActivityCreation(object):
             sa.Integer
         )
         assert manager.activity_cls.actor
+
+    def test_activity_actor_relationship(self, session):
+        base = declarative_base()
+
+        class User(base):
+            __tablename__ = 'user'
+            id = sa.Column(sa.Integer, primary_key=True)
+            name = sa.Column(sa.String)
+
+        class Activity(activity_base(base, actor_cls=User)):
+            __tablename__ = 'activity'
+
+        assign_actor(base, Activity, User)
+
+        base.metadata.create_all(session.connection(), checkfirst=True)
+        user = User(name='Someone')
+        session.add(user)
+        session.flush()
+        activity = Activity(actor_id=user.id)
+        session.add(activity)
+        session.commit()
+        assert activity.actor is user

@@ -6,11 +6,11 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import HSTORE, INET
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1.6'
+__version__ = '0.1.7'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -47,15 +47,16 @@ def assign_actor(base, cls, actor_cls):
     if actor_cls:
         primary_key = sa.inspect(actor_cls).primary_key[0]
 
-        cls.actor_id = declared_attr(
-            lambda self: sa.Column(
-                primary_key.type,
-                sa.ForeignKey(getattr(actor_cls, primary_key.name))
-            )
-        )
-
-        cls.actor = declared_attr(
-            lambda self: sa.orm.relationship(actor_cls)
+        cls.actor_id = sa.Column('actor_id', primary_key.type)
+        cls.actor = sa.orm.relationship(
+            actor_cls,
+            primaryjoin=cls.actor_id == (
+                getattr(
+                    actor_cls,
+                    primary_key.name
+                )
+            ),
+            foreign_keys=[cls.actor_id]
         )
     else:
         cls.actor_id = sa.Column(sa.Text)
@@ -87,8 +88,6 @@ def activity_base(base, actor_cls):
                 table_name=self.table_name,
                 id=self.id
             )
-
-    assign_actor(base, ActivityBase, actor_cls)
     return ActivityBase
 
 
@@ -229,6 +228,7 @@ class VersioningManager(object):
             __tablename__ = 'activity'
             __table_args__ = {'schema': 'audit'}
 
+        assign_actor(base, Activity, self.actor_cls)
         return Activity
 
     def activity_values_model_factory(self):
@@ -241,14 +241,14 @@ class VersioningManager(object):
                 'info': {'ifexists': True}
             }
 
-        self.activity_values_cls = ActivityValues
-        self.table = self.activity_values_cls.__table__
+        assign_actor(base, ActivityValues, self.actor_cls)
         return ActivityValues
 
     def init(self, base):
         self.base = base
         self.activity_cls = self.activity_model_factory(base)
         self.activity_values_cls = self.activity_values_model_factory()
+        self.table = self.activity_values_cls.__table__
         self.attach_listeners()
 
 
