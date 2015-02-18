@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -151,8 +151,13 @@ class VersioningManager(object):
         else:
             stmt = self.table.update()
 
+        # Convert callables to scalars
+        kwargs_copy = kwargs.copy()
+        for k, v in kwargs.items():
+            if callable(v):
+                kwargs_copy[k] = v()
         # Use raw cursor so that SQLAlchemy events are not invoked
-        raw_execute(conn, stmt.values(**kwargs))
+        raw_execute(conn, stmt.values(**kwargs_copy))
 
     def reset_activity_values(self, conn):
         raw_execute(conn, self.table.delete())

@@ -4,6 +4,13 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.1.6 (2015-02-18)
+^^^^^^^^^^^^^^^^^^
+
+- Added support for callables as activity values
+- Changed composite primary key separator from ',' to '|'
+
+
 0.1.5 (2015-02-18)
 ^^^^^^^^^^^^^^^^^^
 

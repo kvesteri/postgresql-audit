@@ -115,6 +115,18 @@ class TestActivityCreation(object):
         activity = last_activity(session)
         assert activity['actor_id'] == '1'
 
+    def test_callables_as_manager_defaults(
+        self,
+        user_class,
+        session
+    ):
+        versioning_manager.values = {'actor_id': lambda: 1}
+        user = user_class(name='John')
+        session.add(user)
+        session.commit()
+        activity = last_activity(session)
+        assert activity['actor_id'] == '1'
+
     def test_raw_insert(
         self,
         user_class,
