@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
