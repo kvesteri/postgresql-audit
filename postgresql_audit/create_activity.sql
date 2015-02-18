@@ -17,12 +17,12 @@ BEGIN
         IF TG_OP = 'DELETE' THEN
             object_id = array_to_string(
                 hstore(OLD.*) -> TG_ARGV[0]::text[],
-                ','
+                '|'
             );
         ELSE
             object_id = array_to_string(
                 hstore(NEW.*) -> TG_ARGV[0]::text[],
-                ','
+                '|'
             );
         END IF;
     END IF;

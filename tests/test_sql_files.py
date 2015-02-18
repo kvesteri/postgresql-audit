@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import pytest
+import sqlalchemy as sa
 from .utils import last_activity
 
 
@@ -146,3 +147,33 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
         assert activity['verb'] == 'delete'
+
+
+@pytest.mark.usefixtures('schema', 'table_creator')
+class TestCompositePrimaryKey(object):
+    @pytest.fixture(scope='module')
+    def membership_cls(self, base):
+        class Membership(base):
+            __tablename__ = 'membership'
+            user_id = sa.Column(sa.Integer, primary_key=True)
+            group_id = sa.Column(sa.Integer, primary_key=True)
+        return Membership
+
+    @pytest.fixture(scope='module')
+    def models(self, membership_cls):
+        return [membership_cls]
+
+    @pytest.fixture
+    def membership(self, session, membership_cls):
+        member = membership_cls(user_id=15, group_id=15)
+        session.add(member)
+        session.flush()
+        return member
+
+    def test_concatenates_composite_primary_keys_to_object_id(
+        self,
+        session,
+        membership
+    ):
+        activity = last_activity(session)
+        assert activity['object_id'] == '15|15'
