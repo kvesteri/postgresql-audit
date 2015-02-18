@@ -6,12 +6,16 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import HSTORE, INET
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.schema import CreateTable
 
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+class ImproperlyConfigured(Exception):
+    pass
 
 
 @compiles(CreateTable)
@@ -39,7 +43,25 @@ def read_file(file_):
     return s
 
 
-def activity_base(base):
+def assign_actor(base, cls, actor_cls):
+    if actor_cls:
+        primary_key = sa.inspect(actor_cls).primary_key[0]
+
+        cls.actor_id = declared_attr(
+            lambda self: sa.Column(
+                primary_key.type,
+                sa.ForeignKey(getattr(actor_cls, primary_key.name))
+            )
+        )
+
+        cls.actor = declared_attr(
+            lambda self: sa.orm.relationship(actor_cls)
+        )
+    else:
+        cls.actor_id = sa.Column(sa.Text)
+
+
+def activity_base(base, actor_cls):
     class ActivityBase(base):
         __abstract__ = True
         id = sa.Column(sa.BigInteger, primary_key=True)
@@ -51,7 +73,6 @@ def activity_base(base):
         client_addr = sa.Column(INET)
         client_port = sa.Column(sa.Integer)
         verb = sa.Column(sa.Text)
-        actor_id = sa.Column(sa.Text)
         object_id = sa.Column(sa.Text)
         target_id = sa.Column(sa.Text)
         row_data = sa.Column(HSTORE)
@@ -67,6 +88,7 @@ def activity_base(base):
                 id=self.id
             )
 
+    assign_actor(base, ActivityBase, actor_cls)
     return ActivityBase
 
 
@@ -96,9 +118,10 @@ class VersioningManager(object):
         )
     ]
 
-    def __init__(self):
-        self.base = declarative_base()
+    def __init__(self, actor_cls=None):
+        self.activity_values_base = declarative_base()
         self.values = {}
+        self._actor_cls = actor_cls
         self.connections_with_tables = WeakSet()
         self.connections_with_tables_row = WeakSet()
         self.pool_listener_args = (
@@ -162,6 +185,30 @@ class VersioningManager(object):
         if self.values:
             self.set_activity_values(conn, **self.values)
 
+    @property
+    def actor_cls(self):
+        if isinstance(self._actor_cls, str):
+            if not self.base:
+                raise ImproperlyConfigured(
+                    'This manager does not have declarative base set up yet. '
+                    'Call init method to set up this manager.'
+                )
+            registry = self.base._decl_class_registry
+            try:
+                return registry[self._actor_cls]
+            except KeyError:
+                raise ImproperlyConfigured(
+                    'Could not build relationship between Activity'
+                    ' and %s. %s was not found in declarative class '
+                    'registry. Either configure VersioningManager to '
+                    'use different actor class or disable this '
+                    'relationship by setting it to None.' % (
+                        self._actor_cls,
+                        self._actor_cls
+                    )
+                )
+        return self._actor_cls
+
     def attach_listeners(self):
         self.attach_table_listeners()
         sa.event.listen(*self.engine_listener_args)
@@ -173,14 +220,16 @@ class VersioningManager(object):
         sa.event.remove(*self.pool_listener_args)
 
     def activity_model_factory(self, base):
-        class Activity(activity_base(base)):
+        class Activity(activity_base(base, self.actor_cls)):
             __tablename__ = 'activity'
             __table_args__ = {'schema': 'audit'}
 
         return Activity
 
     def activity_values_model_factory(self):
-        class ActivityValues(activity_base(self.base)):
+        base = activity_base(declarative_base(), self.actor_cls)
+
+        class ActivityValues(base):
             __tablename__ = 'activity_values'
             __table_args__ = {
                 'prefixes': ['TEMP'],
@@ -192,6 +241,7 @@ class VersioningManager(object):
         return ActivityValues
 
     def init(self, base):
+        self.base = base
         self.activity_cls = self.activity_model_factory(base)
         self.activity_values_cls = self.activity_values_model_factory()
         self.attach_listeners()

@@ -32,32 +32,29 @@ BEGIN
     EXCEPTION WHEN others THEN
     END;
 
-    audit_row = ROW(
-        nextval('audit.activity_id_seq'),               -- id
-        TG_TABLE_SCHEMA::text,                          -- schema_name
-        TG_TABLE_NAME::text,                            -- table_name
-        TG_RELID,                                       -- relation OID for much quicker searches
-        COALESCE(
-            audit_row_values.issued_at,
-            statement_timestamp()
-        ),                                              -- issued_at
-        COALESCE(
-            audit_row_values.transaction_id,
-            txid_current()
-        ),                                              -- transaction ID
-        inet_client_addr(),                             -- client_addr
-        inet_client_port(),                             -- client_port
-        COALESCE(audit_row_values.verb, LOWER(TG_OP)),  -- action
-        audit_row_values.actor_id,                      -- actor_id
-        COALESCE(
-            audit_row_values.object_id,
-            object_id
-        ),                                              -- object_id
-        audit_row_values.target_id,                     -- target_id
-        NULL,                                           -- row_data
-        NULL,                                           -- changed_fields
-        'f'
+    audit_row.id = nextval('audit.activity_id_seq');
+    audit_row.schema_name = TG_TABLE_SCHEMA::text;
+    audit_row.table_name = TG_TABLE_NAME::text;
+    audit_row.relid = TG_RELID;
+    audit_row.issued_at = COALESCE(
+        audit_row_values.issued_at,
+        statement_timestamp()
     );
+    audit_row.transaction_id = COALESCE(
+        audit_row_values.transaction_id,
+        txid_current()
+    );
+    audit_row.client_addr = inet_client_addr();
+    audit_row.client_port = inet_client_port();
+    audit_row.verb = COALESCE(audit_row_values.verb, LOWER(TG_OP));
+    audit_row.actor_id = audit_row_values.actor_id;
+    audit_row.object_id = COALESCE(
+        audit_row_values.object_id,
+        object_id
+    );
+    audit_row.target_id = audit_row_values.target_id;
+    audit_row.row_data = NULL;
+    audit_row.changed_fields = NULL;
 
     IF TG_ARGV[1] IS NOT NULL THEN
         excluded_cols = TG_ARGV[1]::text[];

@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 import pytest
+import sqlalchemy as sa
 from flexmock import flexmock
+from sqlalchemy.ext.declarative import declarative_base
 
-from postgresql_audit import activity_values, versioning_manager
+from postgresql_audit import (
+    activity_values,
+    versioning_manager,
+    VersioningManager
+)
 from .utils import last_activity
 
 
@@ -146,3 +152,28 @@ class TestActivityCreation(object):
         assert repr(activity_cls(id=3, table_name='user')) == (
             "<Activity table_name='user' id=3>"
         )
+
+    def test_custom_actor_class(self, user_class):
+        manager = VersioningManager(actor_cls=user_class)
+        manager.init(declarative_base())
+        assert isinstance(
+            manager.activity_cls.actor_id.property.columns[0].type,
+            sa.Integer
+        )
+        assert manager.activity_cls.actor
+
+    def test_custom_string_actor_class(self):
+        base = declarative_base()
+
+        class User(base):
+            __tablename__ = 'user'
+            id = sa.Column(sa.Integer, primary_key=True)
+
+        User()
+        manager = VersioningManager(actor_cls='User')
+        manager.init(base)
+        assert isinstance(
+            manager.activity_cls.actor_id.property.columns[0].type,
+            sa.Integer
+        )
+        assert manager.activity_cls.actor
