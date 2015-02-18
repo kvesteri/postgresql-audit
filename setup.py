@@ -7,7 +7,7 @@ Versioning and auditing extension for PostgreSQL and SQLAlchemy.
 
 import os
 import re
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +46,7 @@ setup(
     description=(
         'Versioning and auditing extension for PostgreSQL and SQLAlchemy.'
     ),
-    py_modules=['postgresql_audit'],
+    packages=find_packages('.', exclude=['tests', 'tests.*']),
     long_description=__doc__,
     zip_safe=False,
     include_package_data=True,
