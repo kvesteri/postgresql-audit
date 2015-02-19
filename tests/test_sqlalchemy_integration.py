@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import pytest
+from datetime import datetime
+
 import sqlalchemy as sa
-from flexmock import flexmock
 from sqlalchemy.ext.declarative import declarative_base
 
 from postgresql_audit import (
@@ -12,12 +13,6 @@ from postgresql_audit import (
     VersioningManager
 )
 from .utils import last_activity
-
-
-@pytest.fixture(scope='module')
-def activity_cls(base):
-    versioning_manager.init(base)
-    return versioning_manager.activity_cls
 
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
@@ -144,13 +139,6 @@ class TestActivityCreation(object):
         user_class,
         session
     ):
-        # The activity_values table should already be created in test setup
-        # phase
-        (
-            flexmock(versioning_manager)
-            .should_receive('create_temp_table')
-            .never()
-        )
         versioning_manager.values = {'actor_id': 1}
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
@@ -159,8 +147,8 @@ class TestActivityCreation(object):
         assert activity['actor_id'] == '1'
 
     def test_connection_cleaning(self, user_class, connection):
-        assert len(versioning_manager.connections_with_tables) == 1
-        assert len(versioning_manager.connections_with_tables_row) == 1
+        assert len(versioning_manager.connections_with_tables) == 0
+        assert len(versioning_manager.connections_with_tables_row) == 0
 
     def test_activity_repr(self, activity_cls):
         assert repr(activity_cls(id=3, table_name='user')) == (
@@ -213,3 +201,66 @@ class TestActivityCreation(object):
         session.add(activity)
         session.commit()
         assert activity.actor is user
+
+
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
+class TestColumnExclusion(object):
+    """
+    Test column exclusion with olymorphic inheritance and column aliases to
+    cover as many edge cases as possible.
+    """
+    @pytest.fixture
+    def textitem_cls(self, base):
+        class TextItem(base):
+            __tablename__ = 'textitem'
+            __versioned__ = {'exclude': ['_created_at']}
+            id = sa.Column(sa.Integer, primary_key=True)
+            title = sa.Column(sa.String)
+            created_at = sa.Column('_created_at', sa.DateTime)
+            type = sa.Column(sa.String)
+            __mapper_args__ = {'polymorphic_on': type}
+
+        return TextItem
+
+    @pytest.fixture
+    def article_cls(self, textitem_cls):
+        class Article(textitem_cls):
+            __tablename__ = 'article'
+            __versioned__ = {'exclude': ['_updated_at']}
+            id = sa.Column(
+                sa.Integer,
+                sa.ForeignKey(textitem_cls.id),
+                primary_key=True
+            )
+            updated_at = sa.Column('_updated_at', sa.DateTime)
+            content = sa.Column('_content', sa.String)
+            __mapper_args__ = {'polymorphic_identity': 'article'}
+
+        return Article
+
+    @pytest.fixture
+    def models(self, article_cls, textitem_cls):
+        return [article_cls, textitem_cls]
+
+    @pytest.fixture
+    def article(self, article_cls, session):
+        article = article_cls(
+            updated_at=datetime(2001, 1, 1),
+            created_at=datetime(2000, 1, 1),
+            title='Some title',
+            content='Some content'
+        )
+        session.add(article)
+        session.commit()
+        return article
+
+    def test_updating_excluded_child_attr_does_not_add_activity(
+        self,
+        table_creator,
+        article,
+        session,
+        activity_cls
+    ):
+        article.updated_at = datetime(2002, 1, 1)
+        session.commit()
+        assert session.query(activity_cls).count() == 2

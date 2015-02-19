@@ -16,7 +16,7 @@ def activity_values(session):
     session.execute('DROP TABLE activity_values')
 
 
-@pytest.mark.usefixtures('schema', 'table_creator')
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
@@ -90,7 +90,7 @@ class TestActivityCreation(object):
         assert activity[field] == value
 
 
-@pytest.mark.usefixtures('schema', 'table_creator')
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
     def audit_trigger_creator(self, session, user_class):
@@ -149,12 +149,13 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['verb'] == 'delete'
 
 
-@pytest.mark.usefixtures('schema', 'table_creator')
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestCompositePrimaryKey(object):
     @pytest.fixture(scope='module')
     def membership_cls(self, base):
         class Membership(base):
             __tablename__ = 'membership'
+            __versioned__ = {}
             user_id = sa.Column(sa.Integer, primary_key=True)
             group_id = sa.Column(sa.Integer, primary_key=True)
         return Membership

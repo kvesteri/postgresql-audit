@@ -4,6 +4,13 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.2.0 (2015-02-19)
+^^^^^^^^^^^^^^^^^^
+
+- Added __versioned__ configuration parameter for models
+- Added customizable column exclusion support for versioned models
+
+
 0.1.7 (2015-02-18)
 ^^^^^^^^^^^^^^^^^^
 
