@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.2.3 (2015-02-21)
+^^^^^^^^^^^^^^^^^^
+
+- Added explicit committing of audit_table ddl statements
+
+
 0.2.2 (2015-02-21)
 ^^^^^^^^^^^^^^^^^^
 

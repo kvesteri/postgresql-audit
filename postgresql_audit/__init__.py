@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable, DropTable
 
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
 
@@ -50,7 +50,9 @@ class StatementExecutor(object):
         self.stmt = stmt
 
     def __call__(self, target, bind, **kwargs):
+        tx = bind.begin()
         bind.execute(self.stmt)
+        tx.commit()
 
 
 def get_cursor(conn):
