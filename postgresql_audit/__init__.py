@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable, DropTable
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
 
@@ -80,6 +80,8 @@ def read_file(file_):
 
 
 def assign_actor(base, cls, actor_cls):
+    if hasattr(cls, 'actor_id'):
+        return
     if actor_cls:
         primary_key = sa.inspect(actor_cls).primary_key[0]
 
@@ -121,7 +123,7 @@ def audit_table(table, exclude_columns):
         sa.event.listen(*listener)
 
 
-def activity_base(base, actor_cls):
+def activity_base(base):
     class ActivityBase(base):
         __abstract__ = True
         id = sa.Column(sa.BigInteger, primary_key=True)
@@ -225,6 +227,12 @@ class VersioningManager(object):
         """
         for cls in self.pending_classes:
             audit_table(cls.__table__, cls.__versioned__.get('exclude'))
+        assign_actor(
+            self.temporary_base,
+            self.activity_values_cls,
+            self.actor_cls
+        )
+        assign_actor(self.base, self.activity_cls, self.actor_cls)
 
     def attach_table_listeners(self):
         for values in self.table_listeners:
@@ -324,28 +332,25 @@ class VersioningManager(object):
             sa.event.remove(*listener)
 
     def activity_model_factory(self, base):
-        class Activity(activity_base(base, self.actor_cls)):
+        class Activity(activity_base(base)):
             __tablename__ = 'activity'
             __table_args__ = {'schema': 'audit'}
 
-        assign_actor(base, Activity, self.actor_cls)
         return Activity
 
     def activity_values_model_factory(self):
-        base = activity_base(declarative_base(), self.actor_cls)
-
-        class ActivityValues(base):
+        class ActivityValues(activity_base(self.temporary_base)):
             __tablename__ = 'activity_values'
             __table_args__ = {
                 'prefixes': ['TEMP'],
                 'info': {'ifexists': True}
             }
 
-        assign_actor(base, ActivityValues, self.actor_cls)
         return ActivityValues
 
     def init(self, base):
         self.base = base
+        self.temporary_base = declarative_base()
         self.activity_cls = self.activity_model_factory(base)
         self.activity_values_cls = self.activity_values_model_factory()
         self.table = self.activity_values_cls.__table__

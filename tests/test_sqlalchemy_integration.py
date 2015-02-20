@@ -158,6 +158,7 @@ class TestActivityCreation(object):
     def test_custom_actor_class(self, user_class):
         manager = VersioningManager(actor_cls=user_class)
         manager.init(declarative_base())
+        sa.orm.configure_mappers()
         assert isinstance(
             manager.activity_cls.actor_id.property.columns[0].type,
             sa.Integer
@@ -174,6 +175,7 @@ class TestActivityCreation(object):
         User()
         manager = VersioningManager(actor_cls='User')
         manager.init(base)
+        sa.orm.configure_mappers()
         assert isinstance(
             manager.activity_cls.actor_id.property.columns[0].type,
             sa.Integer
@@ -188,7 +190,7 @@ class TestActivityCreation(object):
             id = sa.Column(sa.Integer, primary_key=True)
             name = sa.Column(sa.String)
 
-        class Activity(activity_base(base, actor_cls=User)):
+        class Activity(activity_base(base)):
             __tablename__ = 'activity'
 
         assign_actor(base, Activity, User)

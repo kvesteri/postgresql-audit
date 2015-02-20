@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.2.2 (2015-02-21)
+^^^^^^^^^^^^^^^^^^
+
+- Made actor_id and actor properties of Activity model configured during mapper configuration phase
+
+
 0.2.1 (2015-02-20)
 ^^^^^^^^^^^^^^^^^^
 
