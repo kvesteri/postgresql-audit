@@ -10,8 +10,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import CreateTable, DropTable
 
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 HERE = os.path.dirname(os.path.abspath(__file__))
+cached_statements = {}
 
 
 class ImproperlyConfigured(Exception):
@@ -95,6 +96,29 @@ def assign_actor(base, cls, actor_cls):
         )
     else:
         cls.actor_id = sa.Column(sa.Text)
+
+
+def audit_table(table, exclude_columns):
+    args = [table.name]
+    if exclude_columns:
+        for column in exclude_columns:
+            if column not in table.c:
+                raise ImproperlyConfigured(
+                    "Could not configure versioning. Table '{}'' does "
+                    "not have a column named '{}'.".format(
+                        table.name, column
+                    )
+                )
+        args.append(array(exclude_columns))
+
+    query = sa.select(
+        [sa.func.audit.audit_table(*args)]
+    )
+    if query not in cached_statements:
+        cached_statements[query] = StatementExecutor(query)
+    listener = (table, 'after_create', cached_statements[query])
+    if not sa.event.contains(*listener):
+        sa.event.listen(*listener)
 
 
 def activity_base(base, actor_cls):
@@ -200,28 +224,7 @@ class VersioningManager(object):
         instrumentation process.
         """
         for cls in self.pending_classes:
-            table = cls.__table__
-            args = [table.name]
-            exclude = cls.__versioned__.get('exclude')
-            if exclude:
-                for column in exclude:
-                    if column not in table.c:
-                        raise ImproperlyConfigured(
-                            "Could not configure versioning. Table '{}'' does "
-                            "not have a column named '{}'.".format(
-                                table.name, column
-                            )
-                        )
-                args.append(array(exclude))
-
-            query = sa.select(
-                [sa.func.audit.audit_table(*args)]
-            )
-            if query not in self.cached_ddls:
-                self.cached_ddls[query] = StatementExecutor(query)
-            listener = (table, 'after_create', self.cached_ddls[query])
-            if not sa.event.contains(*listener):
-                sa.event.listen(*listener)
+            audit_table(cls.__table__, cls.__versioned__.get('exclude'))
 
     def attach_table_listeners(self):
         for values in self.table_listeners:

@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.2.1 (2015-02-20)
+^^^^^^^^^^^^^^^^^^
+
+- Added audit_table function
+
+
 0.2.0 (2015-02-19)
 ^^^^^^^^^^^^^^^^^^
 
