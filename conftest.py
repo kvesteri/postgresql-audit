@@ -29,8 +29,6 @@ def engine(dns):
 @pytest.yield_fixture()
 def connection(engine):
     conn = engine.connect()
-    conn.execute('CREATE EXTENSION IF NOT EXISTS hstore')
-    conn.execute('DROP SCHEMA IF EXISTS audit CASCADE')
     yield conn
     conn.close()
 
@@ -80,6 +78,7 @@ def models(user_class, article_class):
 def table_creator(base, connection, session, models, activity_cls):
     sa.orm.configure_mappers()
     tx = connection.begin()
+    connection.execute('DROP SCHEMA IF EXISTS audit CASCADE')
     versioning_manager.activity_cls.__table__.create(connection)
     base.metadata.create_all(connection)
     tx.commit()
@@ -92,5 +91,5 @@ def table_creator(base, connection, session, models, activity_cls):
 def user(session, user_class):
     user = user_class(name='John', age=15)
     session.add(user)
-    session.flush()
+    session.commit()
     return user

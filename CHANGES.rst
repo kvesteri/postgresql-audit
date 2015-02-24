@@ -4,6 +4,13 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.3.0 (2015-02-24)
+^^^^^^^^^^^^^^^^^^
+
+- Added Flask extension
+- Rewrote activity values setting. Now values are set after the flush phase occurs.
+
+
 0.2.3 (2015-02-21)
 ^^^^^^^^^^^^^^^^^^
 

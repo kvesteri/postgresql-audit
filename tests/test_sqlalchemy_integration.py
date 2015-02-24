@@ -7,7 +7,6 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from postgresql_audit import (
     activity_base,
-    activity_values,
     assign_actor,
     versioning_manager,
     VersioningManager
@@ -30,37 +29,19 @@ class TestActivityCreation(object):
         assert activity['transaction_id'] > 0
         assert activity['verb'] == 'insert'
 
-    def test_activity_values_context_manager(
-        self,
-        activity_cls,
-        user_class,
-        session
-    ):
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='John')
-            session.add(user)
-            session.commit()
-
-        activity = last_activity(session)
-        assert activity['target_id'] == '1'
-
     def test_operation_after_commit(
         self,
         activity_cls,
         user_class,
         session
     ):
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='Jack')
-            session.add(user)
-            session.commit()
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='Jack')
-            session.add(user)
-            session.commit()
-        activity = last_activity(session)
+        user = user_class(name='Jack')
+        session.add(user)
+        session.commit()
+        user = user_class(name='Jack')
+        session.add(user)
+        session.commit()
         assert session.query(activity_cls).count() == 2
-        assert activity['target_id'] == '1'
 
     def test_operation_after_rollback(
         self,
@@ -68,37 +49,13 @@ class TestActivityCreation(object):
         user_class,
         session
     ):
-        assert session.query(activity_cls).count() == 0
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='John')
-            session.add(user)
-            session.rollback()
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='John')
-            session.add(user)
-            session.commit()
-        activity = last_activity(session)
+        user = user_class(name='John')
+        session.add(user)
+        session.rollback()
+        user = user_class(name='John')
+        session.add(user)
+        session.commit()
         assert session.query(activity_cls).count() == 1
-        assert activity['target_id'] == '1'
-
-    def test_activity_values_scope(
-        self,
-        activity_cls,
-        user_class,
-        session
-    ):
-        with activity_values(session.connection(), target_id=1):
-            user = user_class(name='John')
-            session.add(user)
-            session.commit()
-        with activity_values(session.connection(), actor_id=1):
-            user = user_class(name='John')
-            session.add(user)
-            session.commit()
-        activity = last_activity(session)
-        assert session.query(activity_cls).count() == 2
-        assert activity['actor_id'] == '1'
-        assert activity['target_id'] is None
 
     def test_manager_defaults(
         self,
@@ -124,17 +81,7 @@ class TestActivityCreation(object):
         activity = last_activity(session)
         assert activity['actor_id'] == '1'
 
-    def test_raw_insert(
-        self,
-        user_class,
-        session
-    ):
-        versioning_manager.values = {'actor_id': 1}
-        session.execute(user_class.__table__.insert().values(name='John'))
-        activity = last_activity(session)
-        assert activity['actor_id'] == '1'
-
-    def test_keeps_track_of_created_tables(
+    def test_raw_inserts(
         self,
         user_class,
         session
@@ -142,13 +89,10 @@ class TestActivityCreation(object):
         versioning_manager.values = {'actor_id': 1}
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
+        versioning_manager.set_activity_values(session)
         activity = last_activity(session)
 
         assert activity['actor_id'] == '1'
-
-    def test_connection_cleaning(self, user_class, connection):
-        assert len(versioning_manager.connections_with_tables) == 0
-        assert len(versioning_manager.connections_with_tables_row) == 0
 
     def test_activity_repr(self, activity_cls):
         assert repr(activity_cls(id=3, table_name='user')) == (

@@ -23,7 +23,14 @@ def get_version():
 
 extras_require = {
     'test': [
+        'Flask==0.10.1',
+        'Flask-Login==0.2.11',
+        'Flask-SQLAlchemy==2.0',
+        'Jinja2==2.7.3',
+        'MarkupSafe==0.23',
+        'Werkzeug==0.10.1',
         'flexmock==0.9.7',
+        'itsdangerous==0.24',
         'pytest>=2.3.5',
         'psycopg2>=2.4.6',
     ],
