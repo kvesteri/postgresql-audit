@@ -5,7 +5,7 @@ Auditing extension for PostgreSQL. Provides additional extensions for SQLAlchemy
 
 Compared to existing solutions PostgreSQL-Audit has the following charasteristics:
 
-- Stores all versions are called activities and saved into single table called 'activity'
+- Stores all versions into single table called 'activity'
 - Uses minimalistic trigger based approach to keep INSERTs, UPDATEs and DELETEs as fast as possible
 - Tracks actor IDs and object IDs to be able to answer these questions quickly:
     - Who modified record x on day x?
@@ -21,6 +21,14 @@ Compared to existing solutions PostgreSQL-Audit has the following charasteristic
 
 .. _SQLAlchemy-Continuum
     https://github.com/kvesteri/SQLAlchemy-Continuum
+
+
+Installation
+------------
+
+::
+
+    pip install PostgreSQL-Audit
 
 
 Flask extension
