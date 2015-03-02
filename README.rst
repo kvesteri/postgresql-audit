@@ -1,7 +1,27 @@
 PostgreSQL-Audit
 ================
 
-Auditing extension for PostgreSQL. Provides additional extensions for SQLAlchemy and Flask.
+Auditing extension for PostgreSQL. Provides additional extensions for SQLAlchemy and Flask. PostgreSQL-Audit tries to combine the best of breed from existing solutions such as SQLAlchemy-Continuum_, Papertrail_ and especially `Audit Trigger by 2nd Quadrant`_.
+
+Compared to existing solutions PostgreSQL-Audit has the following charasteristics:
+
+- Stores all versions are called activities and saved into single table called 'activity'
+- Uses minimalistic trigger based approach to keep INSERTs, UPDATEs and DELETEs as fast as possible
+- Tracks actor IDs and object IDs to be able to answer these questions quickly:
+    - Who modified record x on day x?
+    - What did person x do between y and z?
+    - Can you show me the activity history of record x?
+
+
+.. _Audit Trigger by 2nd Quadrant
+    https://github.com/2ndQuadrant/audit-trigger
+
+.. _Papertrail
+    https://github.com/airblade/paper_trail
+
+.. _SQLAlchemy-Continuum
+    https://github.com/kvesteri/SQLAlchemy-Continuum
+
 
 Flask extension
 ---------------
