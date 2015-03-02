@@ -56,3 +56,15 @@ Now we can check the newly created activity.
     activity.row_data       # {'id': '1', 'name': 'Some article'}
     activity.changed_fields # {'name': 'Some other article'}
 
+
+.. code-block:: python
+
+    db.session.delete(article)
+    db.session.commit()
+
+    activity = Activity.query.order_by(db.desc(Activity.id)).first()
+    activity.id             # 3
+    activity.table_name     # 'article'
+    activity.verb           # 'delete'
+    activity.object_id      # 1
+    activity.row_data       # {'id': '1', 'name': 'Some other article'}
