@@ -3,8 +3,8 @@ from datetime import timedelta
 from weakref import WeakSet
 
 import sqlalchemy as sa
+from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, HSTORE, INET
-
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
@@ -37,7 +37,7 @@ def assign_actor(base, cls, actor_cls):
         primary_key = sa.inspect(actor_cls).primary_key[0]
 
         cls.actor_id = sa.Column('actor_id', primary_key.type)
-        cls.actor = sa.orm.relationship(
+        cls.actor = orm.relationship(
             actor_cls,
             primaryjoin=cls.actor_id == (
                 getattr(
@@ -137,17 +137,17 @@ class VersioningManager(object):
         self._actor_cls = actor_cls
         self.listeners = (
             (
-                sa.orm.mapper,
+                orm.mapper,
                 'instrument_class',
                 self.instrument_versioned_classes
             ),
             (
-                sa.orm.mapper,
+                orm.mapper,
                 'after_configured',
                 self.configure_versioned_classes
             ),
             (
-                sa.orm.session.Session,
+                orm.session.Session,
                 'after_flush',
                 self.receive_after_flush,
             ),
