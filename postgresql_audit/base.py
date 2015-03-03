@@ -51,7 +51,7 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
-def audit_table(table, exclude_columns):
+def audit_table(table, exclude_columns=None):
     args = [table.name]
     if exclude_columns:
         for column in exclude_columns:
