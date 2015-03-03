@@ -3,6 +3,7 @@ SQLAlchemy integration
 
 
 SQLAlchemy integration offers easy way of using PostgreSQL-Audit with SQLAlchemy ORM. It has the following features:
+
 * Automatically marks all declarative classes which have `__versioned__` class property defined as versioned.
 * Attaches after_create DDL listeners that create versioning triggers for all versioned tables.
 * Provides Activity model for easy ORM level access of activities
