@@ -5,12 +5,7 @@ from datetime import datetime
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 
-from postgresql_audit import (
-    activity_base,
-    assign_actor,
-    versioning_manager,
-    VersioningManager
-)
+from postgresql_audit import versioning_manager, VersioningManager
 from .utils import last_activity
 
 
@@ -18,7 +13,6 @@ from .utils import last_activity
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
             'id': user.id,

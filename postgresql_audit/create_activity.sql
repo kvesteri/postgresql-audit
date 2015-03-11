@@ -69,20 +69,6 @@ BEGIN
         RAISE EXCEPTION 'audit.create_activity() may only run as an AFTER trigger';
     END IF;
 
-    IF TG_ARGV[0] IS NOT NULL THEN
-        IF TG_OP = 'DELETE' THEN
-            object_id = array_to_string(
-                hstore(OLD.*) -> TG_ARGV[0]::text[],
-                '|'
-            );
-        ELSE
-            object_id = array_to_string(
-                hstore(NEW.*) -> TG_ARGV[0]::text[],
-                '|'
-            );
-        END IF;
-    END IF;
-
     BEGIN
         SELECT * FROM activity_values INTO audit_row_values LIMIT 1;
     EXCEPTION WHEN others THEN
@@ -104,16 +90,12 @@ BEGIN
     audit_row.client_port = inet_client_port();
     audit_row.verb = COALESCE(audit_row_values.verb, LOWER(TG_OP));
     audit_row.actor_id = audit_row_values.actor_id;
-    audit_row.object_id = COALESCE(
-        audit_row_values.object_id,
-        object_id
-    );
     audit_row.target_id = audit_row_values.target_id;
     audit_row.row_data = NULL;
     audit_row.changed_fields = NULL;
 
-    IF TG_ARGV[1] IS NOT NULL THEN
-        excluded_cols = TG_ARGV[1]::text[];
+    IF TG_ARGV[0] IS NOT NULL THEN
+        excluded_cols = TG_ARGV[0]::text[];
     END IF;
 
     IF (TG_OP = 'UPDATE' AND TG_LEVEL = 'ROW') THEN

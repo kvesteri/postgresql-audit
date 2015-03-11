@@ -20,7 +20,6 @@ def activity_values(session):
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
             'id': user.id,
@@ -45,7 +44,6 @@ class TestActivityCreation(object):
         user.name = 'Luke'
         session.flush()
         activity = last_activity(session)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] == {'name': 'Luke'}
         assert activity['row_data'] == {
             'id': user.id,
@@ -60,7 +58,6 @@ class TestActivityCreation(object):
         session.delete(user)
         session.flush()
         activity = last_activity(session)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
             'id': user.id,
@@ -109,7 +106,6 @@ class TestActivityCreationWithColumnExclusion(object):
 
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
             'id': user.id,
@@ -124,7 +120,6 @@ class TestActivityCreationWithColumnExclusion(object):
         user.age = 18
         session.flush()
         activity = last_activity(session)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] == {'name': 'Luke'}
         assert activity['row_data'] == {
             'id': user.id,
@@ -138,7 +133,6 @@ class TestActivityCreationWithColumnExclusion(object):
         session.delete(user)
         session.flush()
         activity = last_activity(session)
-        assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
             'id': user.id,
@@ -147,34 +141,3 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
         assert activity['verb'] == 'delete'
-
-
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
-class TestCompositePrimaryKey(object):
-    @pytest.fixture(scope='module')
-    def membership_cls(self, base):
-        class Membership(base):
-            __tablename__ = 'membership'
-            __versioned__ = {}
-            user_id = sa.Column(sa.Integer, primary_key=True)
-            group_id = sa.Column(sa.Integer, primary_key=True)
-        return Membership
-
-    @pytest.fixture(scope='module')
-    def models(self, membership_cls):
-        return [membership_cls]
-
-    @pytest.fixture
-    def membership(self, session, membership_cls):
-        member = membership_cls(user_id=15, group_id=15)
-        session.add(member)
-        session.flush()
-        return member
-
-    def test_concatenates_composite_primary_keys_to_object_id(
-        self,
-        session,
-        membership
-    ):
-        activity = last_activity(session)
-        assert activity['object_id'] == '15|15'

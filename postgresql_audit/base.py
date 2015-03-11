@@ -88,7 +88,6 @@ def activity_base(base):
         client_addr = sa.Column(INET)
         client_port = sa.Column(sa.Integer)
         verb = sa.Column(sa.Text)
-        object_id = sa.Column(sa.Text)
         target_id = sa.Column(sa.Text)
         row_data = sa.Column(JSONB)
         changed_fields = sa.Column(JSONB)

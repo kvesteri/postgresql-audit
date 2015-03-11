@@ -3,30 +3,16 @@ DECLARE
     stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
     _q_txt text;
     _ignored_cols_snip text = '';
-    primary_keys text[] = ARRAY[]::text[];
-    primary_keys_q text;
 BEGIN
     EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_row ON ' || target_table;
     EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_stm ON ' || target_table;
 
-    primary_keys_q =
-        'SELECT array_agg(pg_attribute.attname) ' ||
-        'FROM pg_index, pg_class, pg_attribute WHERE ' ||
-        E'pg_class.oid = \''||target_table||E'\'::regclass::oid AND '
-        'indrelid = pg_class.oid AND '
-        'pg_attribute.attrelid = pg_class.oid AND '
-        'pg_attribute.attnum = any(pg_index.indkey) AND '
-        'indisprimary';
-
-    EXECUTE primary_keys_q INTO primary_keys;
-
-    IF array_length(ignored_cols,1) > 0 THEN
+    IF array_length(ignored_cols, 1) > 0 THEN
         _ignored_cols_snip = ', ' || quote_literal(ignored_cols);
     END IF;
     _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
              target_table ||
              ' FOR EACH ROW EXECUTE PROCEDURE audit.create_activity(' ||
-             quote_literal(primary_keys::text[]) ||
              _ignored_cols_snip ||
              ');';
     RAISE NOTICE '%',_q_txt;

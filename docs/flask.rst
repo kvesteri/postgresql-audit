@@ -104,7 +104,10 @@ Now we can find all activites for given article with the following query.
                 Activity.target_table_name == 'article'
             ),
             db.and_(
-                Activity.object_id == str(article.id),
+                db.or_(
+                    Activity.row_data['id'] == article.id,
+                    Activity.changed_fields['id'] == article.id
+                ),
                 Activity.table_name == 'article'
             )
         )
