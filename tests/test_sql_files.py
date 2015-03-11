@@ -23,9 +23,9 @@ class TestActivityCreation(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
-            'age': '15'
+            'age': 15
         }
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
@@ -48,9 +48,9 @@ class TestActivityCreation(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] == {'name': 'Luke'}
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
-            'age': '15'
+            'age': 15
         }
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
@@ -63,9 +63,9 @@ class TestActivityCreation(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
-            'age': '15'
+            'age': 15
         }
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
@@ -112,7 +112,7 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John'
         }
         assert activity['table_name'] == 'user'
@@ -127,7 +127,7 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] == {'name': 'Luke'}
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
         }
         assert activity['table_name'] == 'user'
@@ -141,7 +141,7 @@ class TestActivityCreationWithColumnExclusion(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
         }
         assert activity['table_name'] == 'user'

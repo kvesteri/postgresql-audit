@@ -21,9 +21,9 @@ class TestActivityCreation(object):
         assert activity['object_id'] == str(user.id)
         assert activity['changed_fields'] is None
         assert activity['row_data'] == {
-            'id': str(user.id),
+            'id': user.id,
             'name': 'John',
-            'age': '15'
+            'age': 15
         }
         assert activity['table_name'] == 'user'
         assert activity['transaction_id'] > 0
@@ -126,28 +126,6 @@ class TestActivityCreation(object):
         )
         assert manager.activity_cls.actor
 
-    def test_activity_actor_relationship(self, session):
-        base = declarative_base()
-
-        class User(base):
-            __tablename__ = 'user'
-            id = sa.Column(sa.Integer, primary_key=True)
-            name = sa.Column(sa.String)
-
-        class Activity(activity_base(base)):
-            __tablename__ = 'activity'
-
-        assign_actor(base, Activity, User)
-
-        base.metadata.create_all(session.connection(), checkfirst=True)
-        user = User(name='Someone')
-        session.add(user)
-        session.flush()
-        activity = Activity(actor_id=user.id)
-        session.add(activity)
-        session.commit()
-        assert activity.actor is user
-
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestColumnExclusion(object):
@@ -210,3 +188,14 @@ class TestColumnExclusion(object):
         article.updated_at = datetime(2002, 1, 1)
         session.commit()
         assert session.query(activity_cls).count() == 2
+
+
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
+class TestActivityObject(object):
+    def test_activity_object(self, session, activity_cls, user_class):
+        user = user_class(name='John')
+        session.add(user)
+        session.commit()
+        activity = session.query(activity_cls).first()
+        assert activity.object.__class__ == user.__class__
+        assert activity.object.id == user.id

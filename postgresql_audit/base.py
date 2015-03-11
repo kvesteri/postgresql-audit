@@ -4,7 +4,9 @@ from weakref import WeakSet
 
 import sqlalchemy as sa
 from sqlalchemy import orm
-from sqlalchemy.dialects.postgresql import array, HSTORE, INET
+from sqlalchemy.dialects.postgresql import array, INET, JSONB
+from sqlalchemy_utils import get_class_by_table
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
@@ -88,8 +90,21 @@ def activity_base(base):
         verb = sa.Column(sa.Text)
         object_id = sa.Column(sa.Text)
         target_id = sa.Column(sa.Text)
-        row_data = sa.Column(HSTORE)
-        changed_fields = sa.Column(HSTORE)
+        row_data = sa.Column(JSONB)
+        changed_fields = sa.Column(JSONB)
+
+        @property
+        def data(self):
+            data = self.row_data.copy()
+            if self.changed_fields:
+                data.update(self.changed_fields)
+            return data
+
+        @property
+        def object(self):
+            table = base.metadata.tables[self.table_name]
+            cls = get_class_by_table(base, table, self.row_data)
+            return cls(**self.data)
 
         def __repr__(self):
             return (

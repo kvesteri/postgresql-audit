@@ -29,8 +29,8 @@ CREATE TABLE audit.activity (
     actor_id TEXT,
     object_id TEXT,
     target_id TEXT,
-    row_data HSTORE,
-    changed_fields HSTORE
+    row_data JSON,
+    changed_fields JSON
 );
 
 REVOKE ALL ON audit.activity FROM public;

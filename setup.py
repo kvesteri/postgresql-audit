@@ -58,7 +58,10 @@ setup(
     zip_safe=False,
     include_package_data=True,
     platforms='any',
-    install_requires=['SQLAlchemy>=0.9.4'],
+    install_requires=[
+        'SQLAlchemy>=0.9.4',
+        'SQLAlchemy-Utils>=0.29.8'
+    ],
     extras_require=extras_require,
     classifiers=[
         'Environment :: Web Environment',
