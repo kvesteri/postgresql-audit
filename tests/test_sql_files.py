@@ -20,8 +20,8 @@ def activity_values(session):
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['changed_fields'] is None
-        assert activity['row_data'] == {
+        assert activity['old_data'] is None
+        assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John',
             'age': 15
@@ -44,8 +44,8 @@ class TestActivityCreation(object):
         user.name = 'Luke'
         session.flush()
         activity = last_activity(session)
-        assert activity['changed_fields'] == {'name': 'Luke'}
-        assert activity['row_data'] == {
+        assert activity['changed_data'] == {'name': 'Luke'}
+        assert activity['old_data'] == {
             'id': user.id,
             'name': 'John',
             'age': 15
@@ -58,8 +58,8 @@ class TestActivityCreation(object):
         session.delete(user)
         session.flush()
         activity = last_activity(session)
-        assert activity['changed_fields'] is None
-        assert activity['row_data'] == {
+        assert activity['changed_data'] is None
+        assert activity['old_data'] == {
             'id': user.id,
             'name': 'John',
             'age': 15
@@ -106,8 +106,8 @@ class TestActivityCreationWithColumnExclusion(object):
 
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['changed_fields'] is None
-        assert activity['row_data'] == {
+        assert activity['old_data'] is None
+        assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John'
         }
@@ -120,8 +120,8 @@ class TestActivityCreationWithColumnExclusion(object):
         user.age = 18
         session.flush()
         activity = last_activity(session)
-        assert activity['changed_fields'] == {'name': 'Luke'}
-        assert activity['row_data'] == {
+        assert activity['changed_data'] == {'name': 'Luke'}
+        assert activity['old_data'] == {
             'id': user.id,
             'name': 'John',
         }
@@ -133,8 +133,8 @@ class TestActivityCreationWithColumnExclusion(object):
         session.delete(user)
         session.flush()
         activity = last_activity(session)
-        assert activity['changed_fields'] is None
-        assert activity['row_data'] == {
+        assert activity['changed_data'] is None
+        assert activity['old_data'] == {
             'id': user.id,
             'name': 'John',
         }

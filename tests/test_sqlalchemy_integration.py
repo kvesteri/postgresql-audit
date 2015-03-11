@@ -13,8 +13,8 @@ from .utils import last_activity
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['changed_fields'] is None
-        assert activity['row_data'] == {
+        assert activity['old_data'] is None
+        assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John',
             'age': 15

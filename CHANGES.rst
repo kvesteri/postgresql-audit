@@ -10,6 +10,7 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 - Added default value for audit_table exclude parameter
 - Changed row_data and changed_fields types from HSTORE to JSONB
 - Removed object_id column from activity table
+- Renamed row_data to old_data and changed_fields to changed_data
 
 
 0.3.0 (2015-02-24)

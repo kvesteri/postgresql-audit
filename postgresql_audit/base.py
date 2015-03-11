@@ -89,20 +89,20 @@ def activity_base(base):
         client_port = sa.Column(sa.Integer)
         verb = sa.Column(sa.Text)
         target_id = sa.Column(sa.Text)
-        row_data = sa.Column(JSONB)
-        changed_fields = sa.Column(JSONB)
+        old_data = sa.Column(JSONB)
+        changed_data = sa.Column(JSONB)
 
         @property
         def data(self):
-            data = self.row_data.copy()
-            if self.changed_fields:
-                data.update(self.changed_fields)
+            data = self.old_data.copy() if self.old_data else {}
+            if self.changed_data:
+                data.update(self.changed_data)
             return data
 
         @property
         def object(self):
             table = base.metadata.tables[self.table_name]
-            cls = get_class_by_table(base, table, self.row_data)
+            cls = get_class_by_table(base, table, self.data)
             return cls(**self.data)
 
         def __repr__(self):

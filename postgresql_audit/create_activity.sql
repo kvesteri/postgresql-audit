@@ -58,12 +58,7 @@ CREATE OR REPLACE FUNCTION audit.create_activity() RETURNS TRIGGER AS $body$
 DECLARE
     audit_row audit.activity;
     audit_row_values audit.activity;
-    include_values boolean;
-    log_diffs boolean;
-    h_old hstore;
-    h_new hstore;
     excluded_cols text[] = ARRAY[]::text[];
-    object_id text;
 BEGIN
     IF TG_WHEN <> 'AFTER' THEN
         RAISE EXCEPTION 'audit.create_activity() may only run as an AFTER trigger';
@@ -91,26 +86,26 @@ BEGIN
     audit_row.verb = COALESCE(audit_row_values.verb, LOWER(TG_OP));
     audit_row.actor_id = audit_row_values.actor_id;
     audit_row.target_id = audit_row_values.target_id;
-    audit_row.row_data = NULL;
-    audit_row.changed_fields = NULL;
+    audit_row.old_data = NULL;
+    audit_row.changed_data = NULL;
 
     IF TG_ARGV[0] IS NOT NULL THEN
         excluded_cols = TG_ARGV[0]::text[];
     END IF;
 
     IF (TG_OP = 'UPDATE' AND TG_LEVEL = 'ROW') THEN
-        audit_row.row_data = row_to_json(OLD.*)::jsonb - excluded_cols;
-        audit_row.changed_fields = (
-            row_to_json(NEW.*)::jsonb - audit_row.row_data - excluded_cols
+        audit_row.old_data = row_to_json(OLD.*)::jsonb - excluded_cols;
+        audit_row.changed_data = (
+            row_to_json(NEW.*)::jsonb - audit_row.old_data - excluded_cols
         );
-        IF audit_row.changed_fields = '{}'::jsonb THEN
+        IF audit_row.changed_data = '{}'::jsonb THEN
             -- All changed fields are ignored. Skip this update.
             RETURN NULL;
         END IF;
     ELSIF (TG_OP = 'DELETE' AND TG_LEVEL = 'ROW') THEN
-        audit_row.row_data = row_to_json(OLD.*)::jsonb - excluded_cols;
+        audit_row.old_data = row_to_json(OLD.*)::jsonb - excluded_cols;
     ELSIF (TG_OP = 'INSERT' AND TG_LEVEL = 'ROW') THEN
-        audit_row.row_data = row_to_json(NEW.*)::jsonb - excluded_cols;
+        audit_row.changed_data = row_to_json(NEW.*)::jsonb - excluded_cols;
     ELSE
         RAISE EXCEPTION '[audit.create_activity] - Trigger func added as trigger for unhandled case: %, %', TG_OP, TG_LEVEL;
         RETURN NULL;
