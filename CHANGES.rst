@@ -4,7 +4,7 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
-0.4.0 (2015-xx-xx)
+0.4.0 (2015-03-13)
 ^^^^^^^^^^^^^^^^^^
 
 - Added default value for audit_table exclude parameter
