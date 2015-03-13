@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.4.2 (2015-03-13)
+^^^^^^^^^^^^^^^^^^
+
+- Added data hybrid_property for Activity model. This property makes it easy to find all changes made in given record.
+
+
 0.4.1 (2015-03-13)
 ^^^^^^^^^^^^^^^^^^
 

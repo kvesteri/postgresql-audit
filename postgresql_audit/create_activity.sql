@@ -54,6 +54,24 @@ CREATE OPERATOR - (
   PROCEDURE = jsonb_subtract
 );
 
+CREATE OR REPLACE FUNCTION public.jsonb_merge(data jsonb, merge_data jsonb)
+RETURNS jsonb
+IMMUTABLE
+LANGUAGE sql
+AS $$
+    SELECT ('{'||string_agg(to_json(key)||':'||value, ',')||'}')::jsonb
+    FROM (
+        WITH to_merge AS (
+            SELECT * FROM jsonb_each(merge_data)
+        )
+        SELECT *
+        FROM jsonb_each(data)
+        WHERE key NOT IN (SELECT key FROM to_merge)
+        UNION ALL
+        SELECT * FROM to_merge
+    ) t;
+$$;
+
 CREATE OR REPLACE FUNCTION audit.create_activity() RETURNS TRIGGER AS $body$
 DECLARE
     audit_row audit.activity;

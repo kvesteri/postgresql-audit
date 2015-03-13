@@ -103,6 +103,19 @@ class TestActivityCreation(object):
         )
         assert manager.activity_cls.actor
 
+    def test_data_expression_sql(self, activity_cls):
+        assert str(activity_cls.data) == (
+            'jsonb_merge(audit.activity.old_data, audit.activity.changed_data)'
+        )
+
+    def test_data_expression(self, user, session, activity_cls):
+        user.name = 'Luke'
+        session.commit()
+        assert session.query(activity_cls).filter(
+            activity_cls.table_name == 'user',
+            activity_cls.data['id'].cast(sa.Integer) == user.id
+        ).count() == 2
+
     def test_custom_string_actor_class(self):
         base = declarative_base()
 

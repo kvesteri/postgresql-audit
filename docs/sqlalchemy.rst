@@ -139,3 +139,22 @@ Tracking deletes
     activity.verb           # 'delete'
     activity.old_data       # {'id': '1', 'name': 'Some other article'}
     activity.changed_data   # None
+
+
+Finding history of specific record
+----------------------------------
+
+In this example we want to find all changes made to article with id=3. The query
+is a bit complex since we have to check `old_data` and `changed_data separately. Luckily
+the Activity model has a hybrid_property_ called `data` which is a combination of these two.
+Hence you can get the desired activities as follows:
+
+.. code-block:: python
+
+    activities = session.query(Activity).filter(
+        Activity.table_name == 'article',
+        Activity.data['id'].cast(db.Integer) == 3
+    )
+
+
+.. _hybrid_property: http://docs.sqlalchemy.org/en/latest/orm/extensions/hybrid.html?highlight=hybrid#sqlalchemy.ext.hybrid.hybrid_property

@@ -5,6 +5,9 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, INET, JSONB
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.sql import expression
 from sqlalchemy_utils import get_class_by_table
 
 
@@ -14,6 +17,20 @@ cached_statements = {}
 
 class ImproperlyConfigured(Exception):
     pass
+
+
+class jsonb_merge(expression.FunctionElement):
+    type = JSONB()
+    name = 'jsonb_merge'
+
+
+@compiles(jsonb_merge)
+def compile_jsonb_merge(element, compiler, **kw):
+    arg1, arg2 = list(element.clauses)
+    return 'jsonb_merge({0}, {1})'.format(
+        compiler.process(arg1),
+        compiler.process(arg2)
+    )
 
 
 class StatementExecutor(object):
@@ -91,12 +108,16 @@ def activity_base(base):
         old_data = sa.Column(JSONB)
         changed_data = sa.Column(JSONB)
 
-        @property
+        @hybrid_property
         def data(self):
             data = self.old_data.copy() if self.old_data else {}
             if self.changed_data:
                 data.update(self.changed_data)
             return data
+
+        @data.expression
+        def data(cls):
+            return jsonb_merge(cls.old_data, cls.changed_data)
 
         @property
         def object(self):
