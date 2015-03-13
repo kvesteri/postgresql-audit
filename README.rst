@@ -7,7 +7,7 @@ Compared to existing solutions PostgreSQL-Audit has the following charasteristic
 
 - Stores all versions into single table called 'activity'
 - Uses minimalistic trigger based approach to keep INSERTs, UPDATEs and DELETEs as fast as possible
-- Tracks actor IDs and object IDs to be able to answer these questions quickly:
+- Tracks actor IDs to be able to answer these questions quickly:
     - Who modified record x on day x?
     - What did person x do between y and z?
     - Can you show me the activity history of record x?
@@ -44,6 +44,7 @@ Flask extension
 
     class Article(db.Model):
         __tablename__ = 'article'
+        __versioned__ = {}  # <- IMPORTANT!
         id = db.Column(db.Integer, primary_key=True)
         name = db.Column(db.String)
 
@@ -64,8 +65,8 @@ Now we can check the newly created activity.
     activity.id             # 1
     activity.table_name     # 'article'
     activity.verb           # 'insert'
-    activity.object_id      # 1 (the newly generated article id)
-    activity.row_data       # {'id': '1', 'name': 'Some article'}
+    activity.old_data       # None
+    activity.changed_data   # {'id': '1', 'name': 'Some article'}
 
 
 .. code-block:: python
@@ -78,8 +79,8 @@ Now we can check the newly created activity.
     activity.table_name     # 'article'
     activity.verb           # 'update'
     activity.object_id      # 1
-    activity.row_data       # {'id': '1', 'name': 'Some article'}
-    activity.changed_fields # {'name': 'Some other article'}
+    activity.old_data       # {'id': '1', 'name': 'Some article'}
+    activity.changed_data   # {'name': 'Some other article'}
 
 
 .. code-block:: python
@@ -92,4 +93,5 @@ Now we can check the newly created activity.
     activity.table_name     # 'article'
     activity.verb           # 'delete'
     activity.object_id      # 1
-    activity.row_data       # {'id': '1', 'name': 'Some other article'}
+    activity.old_data       # {'id': '1', 'name': 'Some other article'}
+    activity.changed_data   # None
