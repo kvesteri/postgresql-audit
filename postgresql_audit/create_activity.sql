@@ -82,7 +82,6 @@ BEGIN
         txid_current()
     );
     audit_row.client_addr = inet_client_addr();
-    audit_row.client_port = inet_client_port();
     audit_row.verb = COALESCE(audit_row_values.verb, LOWER(TG_OP));
     audit_row.actor_id = audit_row_values.actor_id;
     audit_row.target_id = audit_row_values.target_id;

@@ -86,7 +86,6 @@ def activity_base(base):
         issued_at = sa.Column(sa.DateTime)
         transaction_id = sa.Column(sa.BigInteger)
         client_addr = sa.Column(INET)
-        client_port = sa.Column(sa.Integer)
         verb = sa.Column(sa.Text)
         target_id = sa.Column(sa.Text)
         old_data = sa.Column(JSONB)

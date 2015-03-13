@@ -24,7 +24,6 @@ CREATE TABLE audit.activity (
     issued_at TIMESTAMP WITH TIME ZONE,
     transaction_id BIGINT,
     client_addr INET,
-    client_port INTEGER,
     verb TEXT,
     actor_id TEXT,
     object_id TEXT,

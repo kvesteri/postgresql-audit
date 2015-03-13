@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.4.1 (2015-03-xx)
+^^^^^^^^^^^^^^^^^^
+
+- Removed client_port column from activity table (doesn't make sense in web environment)
+
+
 0.4.0 (2015-03-13)
 ^^^^^^^^^^^^^^^^^^
 
