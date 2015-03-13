@@ -103,7 +103,8 @@ Now we can check the newly created activity.
     activity.id             # 1
     activity.table_name     # 'article'
     activity.verb           # 'insert'
-    activity.row_data       # {'id': '1', 'name': 'Some article'}
+    activity.old_data       # None
+    activity.changed_data   # {'id': '1', 'name': 'Some article'}
 
 
 Tracking updates
@@ -119,8 +120,8 @@ Tracking updates
     activity.id             # 2
     activity.table_name     # 'article'
     activity.verb           # 'update'
-    activity.row_data       # {'id': '1', 'name': 'Some article'}
-    activity.changed_fields # {'name': 'Some other article'}
+    activity.old_data       # {'id': '1', 'name': 'Some article'}
+    activity.changed_data   # {'name': 'Some other article'}
 
 
 Tracking deletes
@@ -136,4 +137,5 @@ Tracking deletes
     activity.id             # 3
     activity.table_name     # 'article'
     activity.verb           # 'delete'
-    activity.row_data       # {'id': '1', 'name': 'Some other article'}
+    activity.old_data       # {'id': '1', 'name': 'Some other article'}
+    activity.changed_data   # None
