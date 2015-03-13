@@ -4,13 +4,14 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
-0.4.1 (2015-03-xx)
+0.4.1 (2015-03-13)
 ^^^^^^^^^^^^^^^^^^
 
+- Made client_addr overridable
 - Removed client_port column from activity table (doesn't make sense in web environment)
 
 
-0.4.0 (2015-03-13)
+0.4.0 (2015-03-12)
 ^^^^^^^^^^^^^^^^^^
 
 - Added default value for audit_table exclude parameter

@@ -81,7 +81,10 @@ BEGIN
         audit_row_values.transaction_id,
         txid_current()
     );
-    audit_row.client_addr = inet_client_addr();
+    audit_row.client_addr = COALESCE(
+        audit_row_values.client_addr,
+        inet_client_addr()
+    );
     audit_row.verb = COALESCE(audit_row_values.verb, LOWER(TG_OP));
     audit_row.actor_id = audit_row_values.actor_id;
     audit_row.target_id = audit_row_values.target_id;

@@ -131,7 +131,12 @@ class TestFlaskIntegration(object):
     ):
         @app.route('/activity-values')
         def test_activity_values():
-            with activity_values(actor_id=4, target_id='6'):
+            args = {
+                'actor_id': 4,
+                'target_id': '6',
+                'client_addr': '123.123.123.123'
+            }
+            with activity_values(**args):
                 article = article_class()
                 article.name = u'Some article'
                 db.session.add(article)
@@ -148,4 +153,4 @@ class TestFlaskIntegration(object):
         assert len(activities) == 2
         assert activities[1].actor_id == 4
         assert activities[1].target_id == '6'
-        assert activities[1].client_addr is None
+        assert activities[1].client_addr == '123.123.123.123'

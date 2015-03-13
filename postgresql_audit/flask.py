@@ -17,11 +17,18 @@ class FlaskVersioningManager(VersioningManager):
         return values
 
 
+def context_available():
+    return (
+        _app_ctx_stack.top is not None and
+        _request_ctx_stack.top is not None
+    )
+
+
 def fetch_current_user_id():
     from flask.ext.login import current_user
 
     # Return None if we are outside of request context.
-    if _app_ctx_stack.top is None or _request_ctx_stack.top is None:
+    if not context_available():
         return
 
     try:
@@ -32,7 +39,7 @@ def fetch_current_user_id():
 
 def fetch_remote_addr():
     # Return None if we are outside of request context.
-    if _app_ctx_stack.top is None or _request_ctx_stack.top is None:
+    if not context_available():
         return
     return request.remote_addr
 
