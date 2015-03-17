@@ -7,10 +7,24 @@ from sqlalchemy.orm import sessionmaker
 
 from postgresql_audit import versioning_manager
 
+try:
+    import __pypy__
+except ImportError:
+    __pypy__ = None
 
-@pytest.fixture()
-def dns():
-    return 'postgres://postgres@localhost/postgresql_audit_test'
+
+@pytest.fixture
+def driver_name():
+    if __pypy__:
+        return 'postgres+psycopg2cffi'
+    return 'postgres'
+
+
+@pytest.fixture
+def dns(driver_name):
+    return '{0}://postgres@localhost/postgresql_audit_test'.format(
+        driver_name
+    )
 
 
 @pytest.fixture()

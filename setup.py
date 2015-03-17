@@ -9,6 +9,11 @@ import os
 import re
 from setuptools import find_packages, setup
 
+try:
+    import __pypy__
+except ImportError:
+    __pypy__ = None
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,7 +37,7 @@ extras_require = {
         'flexmock==0.9.7',
         'itsdangerous==0.24',
         'pytest>=2.3.5',
-        'psycopg2>=2.4.6',
+        'psycopg2cffi>=2.6.1' if __pypy__ else 'psycopg2>=2.4.6',
     ],
 }
 
