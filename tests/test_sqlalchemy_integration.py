@@ -137,7 +137,7 @@ class TestActivityCreation(object):
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestColumnExclusion(object):
     """
-    Test column exclusion with olymorphic inheritance and column aliases to
+    Test column exclusion with polymorphic inheritance and column aliases to
     cover as many edge cases as possible.
     """
     @pytest.fixture
