@@ -7,7 +7,33 @@ from .expressions import jsonb_change_key_name, jsonb_merge
 def alter_column(conn, table, column_name, func):
     """
     Run given callable against given table and given column in activity table
-    jsonb data columns.
+    jsonb data columns. This function is useful when you want to reflect type
+    changes in your schema to activity table.
+
+    In the following example we change the data type of User's age column from
+    string to integer.
+
+
+    ::
+
+        from alembic import op
+        from postgresql_audit import alter_column
+
+
+        def upgrade():
+            op.alter_column(
+                'user',
+                'age',
+                type_=sa.Integer
+            )
+
+            alter_column(
+                op,
+                'user',
+                'age',
+                lambda value, activity_table: sa.cast(value, sa.Integer)
+            )
+
 
     :param conn:
         An object that is able to execute SQL (either SQLAlchemy Connection,
@@ -18,7 +44,8 @@ def alter_column(conn, table, column_name, func):
         Name of the column to run callable against
     :param func:
         A callable to run against specific column in activity table jsonb data
-        columns
+        columns. The callable should take two parameters the jsonb value
+        corresponding to given column_name and activity table object.
     """
     activity_table = sa.Table(
         'activity',
