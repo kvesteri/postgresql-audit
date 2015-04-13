@@ -88,6 +88,14 @@ def table_creator(base, connection, session, models, activity_cls):
 
 
 @pytest.fixture
+def article(session, article_class):
+    article = article_class(name='Some article')
+    session.add(article)
+    session.commit()
+    return article
+
+
+@pytest.fixture
 def user(session, user_class):
     user = user_class(name='John', age=15)
     session.add(user)

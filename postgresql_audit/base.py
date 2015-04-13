@@ -20,6 +20,21 @@ class ImproperlyConfigured(Exception):
 
 
 class jsonb_merge(expression.FunctionElement):
+    """
+    Provides jsonb_merge as a SQLAlchemy FunctionElement.
+
+    ::
+
+
+        import sqlalchemy as sa
+        from postgresql_audit import jsonb_merge
+
+
+        data = {'key1': 1, 'key3': 4}
+        merge_data = {'key1': 2, 'key2': 3}
+        query = sa.select([jsonb_merge(data, merge_data)])
+        session.execute(query).scalar()  # {'key1': 2, 'key2': 3, 'key3': 4}
+    """
     type = JSONB()
     name = 'jsonb_merge'
 
@@ -33,7 +48,62 @@ def compile_jsonb_merge(element, compiler, **kw):
     )
 
 
+def change_column_name(conn, table, old_column_name, new_column_name):
+    """
+    Changes given audit.activity jsonb data column key. This function is useful
+    when you are doing schema changes that require changing a column name.
+
+    :param conn:
+        An object that is able to execute SQL (either SQLAlchemy Connection,
+        Engine or Alembic Operations object)
+    :param table:
+        The table to run the column name changes against
+    :param old_column_name:
+        Name of the column to change
+    :param new_column_name:
+        New colum name
+    """
+    activity_table = sa.Table(
+        'activity',
+        sa.MetaData(bind=conn),
+        schema='audit',
+        autoload=True
+    )
+    query = (
+        activity_table
+        .update()
+        .values(
+            old_data=jsonb_change_key_name(
+                activity_table.c.old_data,
+                old_column_name,
+                new_column_name
+            ),
+            changed_data=jsonb_change_key_name(
+                activity_table.c.changed_data,
+                old_column_name,
+                new_column_name
+            )
+        )
+        .where(activity_table.c.table_name == table)
+    )
+    return conn.execute(query)
+
+
 class jsonb_change_key_name(expression.FunctionElement):
+    """
+    Provides jsonb_change_key_name as a SQLAlchemy FunctionElement.
+
+    ::
+
+
+        import sqlalchemy as sa
+        from postgresql_audit import jsonb_change_key_name
+
+
+        data = {'key1': 1, 'key3': 4}
+        query = sa.select([jsonb_merge(data, 'key1', 'key2')])
+        session.execute(query).scalar()  # {'key2': 1, 'key3': 4}
+    """
     type = JSONB()
     name = 'jsonb_change_key_name'
 

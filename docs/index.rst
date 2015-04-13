@@ -9,3 +9,4 @@ Contents:
    installation
    sqlalchemy
    flask
+   migrations
