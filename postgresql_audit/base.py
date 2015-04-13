@@ -5,10 +5,10 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, INET, JSONB
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.sql import expression
 from sqlalchemy_utils import get_class_by_table
+
+from .expressions import jsonb_change_key_name, jsonb_merge
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -19,33 +19,56 @@ class ImproperlyConfigured(Exception):
     pass
 
 
-class jsonb_merge(expression.FunctionElement):
+def alter_column(conn, table, column_name, func):
     """
-    Provides jsonb_merge as a SQLAlchemy FunctionElement.
+    Run given callable against given table and given column in activity table
+    jsonb data columns.
 
-    ::
-
-
-        import sqlalchemy as sa
-        from postgresql_audit import jsonb_merge
-
-
-        data = {'key1': 1, 'key3': 4}
-        merge_data = {'key1': 2, 'key2': 3}
-        query = sa.select([jsonb_merge(data, merge_data)])
-        session.execute(query).scalar()  # {'key1': 2, 'key2': 3, 'key3': 4}
+    :param conn:
+        An object that is able to execute SQL (either SQLAlchemy Connection,
+        Engine or Alembic Operations object)
+    :param table:
+        The table to run the column name changes against
+    :param column_name:
+        Name of the column to run callable against
+    :param func:
+        A callable to run against specific column in activity table jsonb data
+        columns
     """
-    type = JSONB()
-    name = 'jsonb_merge'
-
-
-@compiles(jsonb_merge)
-def compile_jsonb_merge(element, compiler, **kw):
-    arg1, arg2 = list(element.clauses)
-    return 'jsonb_merge({0}, {1})'.format(
-        compiler.process(arg1),
-        compiler.process(arg2)
+    activity_table = sa.Table(
+        'activity',
+        sa.MetaData(bind=conn),
+        schema='audit',
+        autoload=True
     )
+    query = (
+        activity_table
+        .update()
+        .values(
+            old_data=jsonb_merge(
+                activity_table.c.old_data,
+                sa.cast(sa.func.json_build_object(
+                    column_name,
+                    func(
+                        activity_table.c.old_data[column_name],
+                        activity_table
+                    )
+                ), JSONB)
+            ),
+            changed_data=jsonb_merge(
+                activity_table.c.changed_data,
+                sa.cast(sa.func.json_build_object(
+                    column_name,
+                    func(
+                        activity_table.c.changed_data[column_name],
+                        activity_table
+                    )
+                ), JSONB)
+            )
+        )
+        .where(activity_table.c.table_name == table)
+    )
+    return conn.execute(query)
 
 
 def change_column_name(conn, table, old_column_name, new_column_name):
@@ -89,10 +112,64 @@ def change_column_name(conn, table, old_column_name, new_column_name):
     return conn.execute(query)
 
 
+def add_column(conn, table, column_name, default_value=None):
+    """
+    Adds given column to `audit.activity` table jsonb data columns.
+
+    In the following example we reflect the changes made to our schema to
+    activity table.
+
+    ::
+
+        import sqlalchemy as sa
+        from alembic import op
+        from postgresql_audit import add_column
+
+
+        def upgrade():
+            op.remove_column('article', sa.Column('created_at', sa.DateTime()))
+            add_column(op, 'article', 'created_at')
+
+
+    :param conn:
+        An object that is able to execute SQL (either SQLAlchemy Connection,
+        Engine or Alembic Operations object)
+    :param table:
+        The table to remove the column from
+    :param column_name:
+        Name of the column to add
+    :param default_value:
+        The default value of the column
+    """
+    activity_table = sa.Table(
+        'activity',
+        sa.MetaData(bind=conn),
+        schema='audit',
+        autoload=True
+    )
+    data = {column_name: default_value}
+    query = (
+        activity_table
+        .update()
+        .values(
+            old_data=jsonb_merge(
+                activity_table.c.old_data,
+                data
+            ),
+            changed_data=jsonb_merge(
+                activity_table.c.changed_data,
+                data
+            ),
+        )
+        .where(activity_table.c.table_name == table)
+    )
+    return conn.execute(query)
+
+
 def remove_column(conn, table, column_name):
     """
     Removes given audit.activity jsonb data column key. This function is useful
-    when you are doing schema changes that require removeing a column.
+    when you are doing schema changes that require removing a column.
 
     Let's say you've been using PostgreSQL-Audit for a while for a table called
     article. Now you want to remove one audited column called 'created_at' from
@@ -114,7 +191,7 @@ def remove_column(conn, table, column_name):
         Engine or Alembic Operations object)
     :param table:
         The table to remove the column from
-    :param old_column_name:
+    :param column_name:
         Name of the column to remove
     """
     activity_table = sa.Table(
@@ -134,36 +211,6 @@ def remove_column(conn, table, column_name):
         .where(activity_table.c.table_name == table)
     )
     return conn.execute(query)
-
-
-class jsonb_change_key_name(expression.FunctionElement):
-    """
-    Provides jsonb_change_key_name as a SQLAlchemy FunctionElement.
-
-    ::
-
-
-        import sqlalchemy as sa
-        from postgresql_audit import jsonb_change_key_name
-
-
-        data = {'key1': 1, 'key3': 4}
-        query = sa.select([jsonb_merge(data, 'key1', 'key2')])
-        session.execute(query).scalar()  # {'key2': 1, 'key3': 4}
-    """
-    type = JSONB()
-    name = 'jsonb_change_key_name'
-
-
-@compiles(jsonb_change_key_name)
-def compile_jsonb_change_key_name(element, compiler, **kw):
-    arg1, arg2, arg3 = list(element.clauses)
-    arg1.type = JSONB()
-    return 'jsonb_change_key_name({0}, {1}, {2})'.format(
-        compiler.process(arg1),
-        compiler.process(arg2),
-        compiler.process(arg3)
-    )
 
 
 class StatementExecutor(object):

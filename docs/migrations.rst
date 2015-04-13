@@ -11,7 +11,7 @@ Changing column name
 
 In a very common scenario you change a column name of an audited table. In order to avoid
 situations where the activity data still contains references to old column names you need to
-do the following in your migration file.
+call :func:`.change_column_name` function in your alembic migration file.
 
 ::
 
@@ -23,13 +23,22 @@ do the following in your migration file.
 
         change_column_name(op, 'my_table', 'my_column', 'some_column')
 
-
-
 .. module:: postgresql_audit.base
 
 .. autofunction:: change_column_name
 
+
+Removing columns
+----------------
+
 .. autofunction:: remove_column
+
+
+Adding columns
+--------------
+
+.. autofunction:: add_column
+
 
 .. autoclass:: jsonb_merge
 

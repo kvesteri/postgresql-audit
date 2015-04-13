@@ -1,5 +1,7 @@
 from .base import (  # noqa
     activity_base,
+    add_column,
+    alter_column,
     assign_actor,
     change_column_name,
     ImproperlyConfigured,

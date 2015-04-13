@@ -118,18 +118,18 @@ class TestJSONBMerge(object):
         ('data', 'merge_data', 'expected'),
         (
             (
-                '{"key1": 4, "key2": 3}',
-                '{"key1": 5, "key3": 5}',
+                {"key1": 4, "key2": 3},
+                {"key1": 5, "key3": 5},
                 {"key1": 5, "key2": 3, "key3": 5}
             ),
             (
-                '{}',
-                '{"key1": 5, "key3": 5}',
+                {},
+                {"key1": 5, "key3": 5},
                 {"key1": 5, "key3": 5}
             ),
             (
-                '{"key1": 4, "key2": 3}',
-                '{}',
+                {"key1": 4, "key2": 3},
+                {},
                 {"key1": 4, "key2": 3}
             ),
         )
