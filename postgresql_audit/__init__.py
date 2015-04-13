@@ -1,7 +1,9 @@
-from .base import (
+from .base import (  # noqa
     activity_base,
     assign_actor,
     ImproperlyConfigured,
+    jsonb_change_key_name,
+    jsonb_merge,
     VersioningManager,
     versioning_manager,
 )

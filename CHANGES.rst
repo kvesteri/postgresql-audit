@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.4.3 (2015-04-xx)
+^^^^^^^^^^^^^^^^^^
+
+- Added jsonb_change_key_name migration utility function
+
+
 0.4.2 (2015-03-13)
 ^^^^^^^^^^^^^^^^^^
 

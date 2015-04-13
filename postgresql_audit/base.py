@@ -33,6 +33,22 @@ def compile_jsonb_merge(element, compiler, **kw):
     )
 
 
+class jsonb_change_key_name(expression.FunctionElement):
+    type = JSONB()
+    name = 'jsonb_change_key_name'
+
+
+@compiles(jsonb_change_key_name)
+def compile_jsonb_change_key_name(element, compiler, **kw):
+    arg1, arg2, arg3 = list(element.clauses)
+    arg1.type = JSONB()
+    return 'jsonb_change_key_name({0}, {1}, {2})'.format(
+        compiler.process(arg1),
+        compiler.process(arg2),
+        compiler.process(arg3)
+    )
+
+
 class StatementExecutor(object):
     def __init__(self, stmt):
         self.stmt = stmt
