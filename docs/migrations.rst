@@ -1,31 +1,23 @@
 Migrations
 ==========
 
-The schema of PostgreSQL-Audit is very flexible. Your schema can change without
-the need of changing the version history schema. However it is recommended that you reflect
-the changes you make to your schema to `old_data` and `changed_data` columns of audit.activity`
-table.
+Usually your schema changes over time. The schema of PostgreSQL-Audit is very flexible, since it stores the data in JSONB columns. Your schema can change without the need of changing the version history JSONB data columns.
+
+However in case you want to show the version history on the application side you may want to reflect the changes you make to your schema to `old_data` and `changed_data` columns of `audit.activity` table. The other solution is to make your application code aware of all the schema changes that have happened over time. This can get a bit tedious if your schema is quickly evolving.
+
 
 Changing column name
 --------------------
 
-In a very common scenario you change a column name of an audited table. In order to avoid
-situations where the activity data still contains references to old column names you need to
-call :func:`.change_column_name` function in your alembic migration file.
-
-::
-
-    from postgresql_audit import change_column_name
-
-
-    def upgrade():
-        op.alter_column('my_table', 'my_column', new_column_name='some_column')
-
-        change_column_name(op, 'my_table', 'my_column', 'some_column')
-
-.. module:: postgresql_audit.base
+.. module:: postgresql_audit.migrations
 
 .. autofunction:: change_column_name
+
+
+Alter column type
+-----------------
+
+.. autofunction:: alter_column
 
 
 Removing columns
