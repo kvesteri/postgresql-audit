@@ -5,6 +5,7 @@ from .base import (  # noqa
     ImproperlyConfigured,
     jsonb_change_key_name,
     jsonb_merge,
+    remove_column,
     VersioningManager,
     versioning_manager,
 )

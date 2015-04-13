@@ -29,6 +29,8 @@ do the following in your migration file.
 
 .. autofunction:: change_column_name
 
+.. autofunction:: remove_column
+
 .. autoclass:: jsonb_merge
 
 .. autoclass:: jsonb_change_key_name

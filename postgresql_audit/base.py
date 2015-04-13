@@ -89,6 +89,53 @@ def change_column_name(conn, table, old_column_name, new_column_name):
     return conn.execute(query)
 
 
+def remove_column(conn, table, column_name):
+    """
+    Removes given audit.activity jsonb data column key. This function is useful
+    when you are doing schema changes that require removeing a column.
+
+    Let's say you've been using PostgreSQL-Audit for a while for a table called
+    article. Now you want to remove one audited column called 'created_at' from
+    this table.
+
+    ::
+
+        from alembic import op
+        from postgresql_audit import remove_column
+
+
+        def upgrade():
+            op.remove_column('article', 'created_at')
+            remove_column(op, 'article', 'created_at')
+
+
+    :param conn:
+        An object that is able to execute SQL (either SQLAlchemy Connection,
+        Engine or Alembic Operations object)
+    :param table:
+        The table to remove the column from
+    :param old_column_name:
+        Name of the column to remove
+    """
+    activity_table = sa.Table(
+        'activity',
+        sa.MetaData(bind=conn),
+        schema='audit',
+        autoload=True
+    )
+    remove = sa.cast(column_name, sa.Text)
+    query = (
+        activity_table
+        .update()
+        .values(
+            old_data=activity_table.c.old_data - remove,
+            changed_data=activity_table.c.changed_data - remove,
+        )
+        .where(activity_table.c.table_name == table)
+    )
+    return conn.execute(query)
+
+
 class jsonb_change_key_name(expression.FunctionElement):
     """
     Provides jsonb_change_key_name as a SQLAlchemy FunctionElement.

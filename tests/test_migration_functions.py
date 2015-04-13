@@ -1,6 +1,10 @@
 import pytest
 
-from postgresql_audit import change_column_name, versioning_manager
+from postgresql_audit import (
+    change_column_name,
+    remove_column,
+    versioning_manager
+)
 from .utils import last_activity
 
 
@@ -36,5 +40,39 @@ class TestChangeColumnName(object):
         assert activity['old_data'] == {
             'id': user.id,
             'some_name': 'John',
+            'age': 15
+        }
+
+
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
+class TestRemoveColumn(object):
+    def test_only_updates_given_table(
+        self,
+        session,
+        article,
+        user,
+        connection
+    ):
+        remove_column(connection, 'user', 'name')
+        activity = session.query(versioning_manager.activity_cls).filter_by(
+            table_name='article'
+        ).one()
+        assert 'name' in activity.changed_data
+
+    def test_updates_changed_data(self, session, user, connection):
+        remove_column(connection, 'user', 'name')
+        activity = last_activity(connection)
+        assert activity['changed_data'] == {
+            'id': user.id,
+            'age': 15
+        }
+
+    def test_updates_old_data(self, session, user, connection):
+        user.name = 'Luke'
+        session.commit()
+        remove_column(connection, 'user', 'name')
+        activity = last_activity(connection)
+        assert activity['old_data'] == {
+            'id': user.id,
             'age': 15
         }
