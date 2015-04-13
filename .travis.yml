@@ -31,4 +31,5 @@ install:
 
 script:
   - isort --recursive --diff postgresql_audit tests && isort --recursive --check-only postgresql_audit tests
+  - flake8 postgresql_audit tests
   - py.test

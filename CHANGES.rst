@@ -7,7 +7,10 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 0.4.3 (2015-04-xx)
 ^^^^^^^^^^^^^^^^^^
 
+- Added alter_column migration helper function
 - Added change_column_name migration helper function
+- Added flake8 checks
+- Added isort checks
 - Added jsonb_change_key_name function expression
 - Added jsonb substraction operator to support text data type
 - Added remove_column migration helper
