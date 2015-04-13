@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-import pytest
 from datetime import datetime
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 
 from postgresql_audit import versioning_manager, VersioningManager
+
 from .utils import last_activity
 
 

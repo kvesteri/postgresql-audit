@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import pytest
+
 from .utils import last_activity
 
 

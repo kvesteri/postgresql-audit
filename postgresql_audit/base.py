@@ -10,7 +10,6 @@ from sqlalchemy_utils import get_class_by_table
 
 from .expressions import jsonb_change_key_name, jsonb_merge
 
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
 

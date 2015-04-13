@@ -8,6 +8,7 @@ from postgresql_audit import (
     remove_column,
     versioning_manager
 )
+
 from .utils import last_activity
 
 

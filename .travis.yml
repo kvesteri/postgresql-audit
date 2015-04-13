@@ -30,4 +30,5 @@ install:
   - pip install -e .[$EXTRAS]
 
 script:
+  - isort --recursive --diff postgresql_audit tests && isort --recursive --check-only postgresql_audit tests
   - py.test

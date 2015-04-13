@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import pytest
-
 from flask import Flask, url_for
 from flask.ext.login import LoginManager
 from flask.ext.sqlalchemy import SQLAlchemy

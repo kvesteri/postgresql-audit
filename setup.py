@@ -30,6 +30,7 @@ extras_require = {
         'MarkupSafe==0.23',
         'Werkzeug==0.10.1',
         'flexmock==0.9.7',
+        'isort==3.9.6',
         'itsdangerous==0.24',
         'pytest>=2.3.5',
         'psycopg2>=2.4.6',
