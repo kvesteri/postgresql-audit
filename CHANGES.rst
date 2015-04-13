@@ -4,7 +4,7 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
-0.4.3 (2015-04-xx)
+0.5.0 (2015-04-13)
 ^^^^^^^^^^^^^^^^^^
 
 - Added alter_column migration helper function
