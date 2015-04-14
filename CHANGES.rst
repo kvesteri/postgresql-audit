@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.5.1 (2015-04-14)
+^^^^^^^^^^^^^^^^^^
+
+- Fixed migration helpers to work with alembic operations object
+
+
 0.5.0 (2015-04-13)
 ^^^^^^^^^^^^^^^^^^
 

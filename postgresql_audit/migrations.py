@@ -4,12 +4,16 @@ from sqlalchemy.dialects.postgresql import JSONB
 from .expressions import jsonb_change_key_name, jsonb_merge
 
 
-def get_activity_table(conn):
+def get_activity_table():
     return sa.Table(
         'activity',
-        sa.MetaData(bind=conn),
+        sa.MetaData(),
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('table_name', sa.String),
+        sa.Column('verb', sa.String),
+        sa.Column('old_data', JSONB),
+        sa.Column('changed_data', JSONB),
         schema='audit',
-        autoload=True
     )
 
 
@@ -56,7 +60,7 @@ def alter_column(conn, table, column_name, func):
         columns. The callable should take two parameters the jsonb value
         corresponding to given column_name and activity table object.
     """
-    activity_table = get_activity_table(conn)
+    activity_table = get_activity_table()
     query = (
         activity_table
         .update()
@@ -118,7 +122,7 @@ def change_column_name(conn, table, old_column_name, new_column_name):
     :param new_column_name:
         New colum name
     """
-    activity_table = get_activity_table(conn)
+    activity_table = get_activity_table()
     query = (
         activity_table
         .update()
@@ -168,7 +172,7 @@ def add_column(conn, table, column_name, default_value=None):
     :param default_value:
         The default value of the column
     """
-    activity_table = get_activity_table(conn)
+    activity_table = get_activity_table()
     data = {column_name: default_value}
     query = (
         activity_table
@@ -235,7 +239,7 @@ def remove_column(conn, table, column_name):
     :param column_name:
         Name of the column to remove
     """
-    activity_table = get_activity_table(conn)
+    activity_table = get_activity_table()
     remove = sa.cast(column_name, sa.Text)
     query = (
         activity_table
