@@ -158,7 +158,7 @@ def add_column(conn, table, column_name, default_value=None):
 
 
         def upgrade():
-            op.remove_column('article', sa.Column('created_at', sa.DateTime()))
+            op.add_column('article', sa.Column('created_at', sa.DateTime()))
             add_column(op, 'article', 'created_at')
 
 
