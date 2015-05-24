@@ -1,6 +1,10 @@
 PostgreSQL-Audit
 ================
 
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+   :alt: Join the chat at https://gitter.im/kvesteri/postgresql-audit
+   :target: https://gitter.im/kvesteri/postgresql-audit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+
 Auditing extension for PostgreSQL. Provides additional extensions for SQLAlchemy and Flask. PostgreSQL-Audit tries to combine the best of breed from existing solutions such as SQLAlchemy-Continuum_, Papertrail_ and especially `Audit Trigger by 2nd Quadrant`_.
 
 Compared to existing solutions PostgreSQL-Audit has the following charasteristics:
