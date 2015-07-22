@@ -20,7 +20,7 @@ Installing an official release
 You can install the most recent official PostgreSQL-Audit version using
 pip_::
 
-    pip install sqlalchemy-utils
+    pip install postgresql-audit
 
 .. _pip: http://www.pip-installer.org/
 
