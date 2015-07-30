@@ -123,13 +123,10 @@ def activity_base(base):
 
 
 def convert_callables(values):
-    result = {}
-    for key, value in values.items():
-        if callable(value):
-            result[key] = value()
-        else:
-            result[key] = value
-    return result
+    return {
+        key: value() if callable(value) else value
+        for key, value in values.items()
+    }
 
 
 class VersioningManager(object):
