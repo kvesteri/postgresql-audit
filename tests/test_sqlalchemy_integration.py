@@ -134,6 +134,23 @@ class TestActivityCreation(object):
         )
         assert manager.activity_cls.actor
 
+    def test_disable_contextmanager(
+        self,
+        activity_cls,
+        user_class,
+        session
+    ):
+        with versioning_manager.disable(session):
+            user = user_class(name='Jack')
+            session.add(user)
+            session.commit()
+        assert session.query(activity_cls).count() == 0
+
+        user = user_class(name='Jack')
+        session.add(user)
+        session.commit()
+        assert session.query(activity_cls).count() == 1
+
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestColumnExclusion(object):
