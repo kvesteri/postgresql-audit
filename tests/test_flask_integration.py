@@ -4,7 +4,7 @@ from flask import Flask, url_for
 from flask.ext.login import LoginManager
 from flask.ext.sqlalchemy import SQLAlchemy
 
-from postgresql_audit.flask import activity_values, versioning_manager
+from postgresql_audit.flask import activity_values, VersioningManager
 
 
 def login(client, user):
@@ -73,10 +73,16 @@ def app(dns, db, login_manager, user_class, article_class):
 
 
 @pytest.yield_fixture()
-def activity_cls(db):
-    versioning_manager.init(db.Model)
+def versioning_manager(db):
+    vm = VersioningManager()
+    vm.init(db.Model)
+    yield vm
+    vm.remove_listeners()
+
+
+@pytest.yield_fixture()
+def activity_cls(versioning_manager):
     yield versioning_manager.activity_cls
-    versioning_manager.remove_listeners()
 
 
 @pytest.yield_fixture
@@ -92,10 +98,9 @@ def client(app):
 
 
 @pytest.yield_fixture
-def table_creator(client, db, models, activity_cls):
+def table_creator(client, db, models, activity_cls, versioning_manager):
     db.configure_mappers()
     conn = db.session.connection()
-    conn.execute('DROP SCHEMA IF EXISTS audit CASCADE')
     versioning_manager.activity_cls.__table__.create(conn)
     db.Model.metadata.create_all(conn)
     db.session.commit()
@@ -107,7 +112,16 @@ def table_creator(client, db, models, activity_cls):
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestFlaskIntegration(object):
-    def test_client_addr_with_proxies(self, app, db, client, user, user_class):
+
+    def test_client_addr_with_proxies(
+        self,
+        app,
+        db,
+        client,
+        user,
+        user_class,
+        versioning_manager
+    ):
         login(client, user)
         environ_base = dict(REMOTE_ADDR='')
         proxy_headers = dict(X_FORWARDED_FOR='1.1.1.1,77.77.77.77')
@@ -122,13 +136,21 @@ class TestFlaskIntegration(object):
         assert activities[1].actor_id == user.id
         assert activities[1].client_addr is None
 
-    def test_simple_flushing_view(self, app, db, client, user, user_class):
+    def test_simple_flushing_view(
+        self,
+        app,
+        db,
+        client,
+        user,
+        user_class,
+        versioning_manager
+    ):
         login(client, user)
         client.get(url_for('.test_simple_flush'))
 
         activities = (
             db.session.query(versioning_manager.activity_cls)
-            .order_by('id DESC').all()
+            .order_by(versioning_manager.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
         assert activities[1].actor_id == user.id
@@ -141,7 +163,8 @@ class TestFlaskIntegration(object):
         client,
         user,
         user_class,
-        article_class
+        article_class,
+        versioning_manager
     ):
         @app.route('/activity-values')
         def test_activity_values():
@@ -162,7 +185,7 @@ class TestFlaskIntegration(object):
 
         activities = (
             db.session.query(versioning_manager.activity_cls)
-            .order_by('id DESC').all()
+            .order_by(versioning_manager.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
         assert activities[1].actor_id == 4

@@ -5,8 +5,7 @@ from postgresql_audit import (
     add_column,
     alter_column,
     change_column_name,
-    remove_column,
-    versioning_manager
+    remove_column
 )
 
 from .utils import last_activity
@@ -19,7 +18,8 @@ class TestChangeColumnName(object):
         session,
         article,
         user,
-        connection
+        connection,
+        versioning_manager
     ):
         change_column_name(connection, 'user', 'name', 'some_name')
         activity = session.query(versioning_manager.activity_cls).filter_by(
@@ -55,7 +55,8 @@ class TestRemoveColumn(object):
         session,
         article,
         user,
-        connection
+        connection,
+        versioning_manager
     ):
         remove_column(connection, 'user', 'name')
         activity = session.query(versioning_manager.activity_cls).filter_by(
@@ -90,7 +91,8 @@ class TestAddColumn(object):
         session,
         article,
         user,
-        connection
+        connection,
+        versioning_manager
     ):
         add_column(connection, 'user', 'some_column')
         activity = session.query(versioning_manager.activity_cls).filter_by(
@@ -130,7 +132,8 @@ class TestAlterColumn(object):
         session,
         article,
         user,
-        connection
+        connection,
+        versioning_manager
     ):
         alter_column(
             connection,
