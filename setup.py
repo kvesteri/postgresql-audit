@@ -31,7 +31,7 @@ extras_require = {
         'Werkzeug==0.10.1',
         'flake8>=2.4.0',
         'flexmock==0.9.7',
-        'isort==3.9.6',
+        'isort>=4.2.2',
         'itsdangerous==0.24',
         'pytest>=2.3.5',
         'psycopg2>=2.4.6',
