@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import create_engine
@@ -9,8 +11,18 @@ from postgresql_audit import versioning_manager
 
 
 @pytest.fixture()
-def dns():
-    return 'postgres://postgres@localhost/postgresql_audit_test'
+def db_user():
+    return os.environ.get('POSTGRESQL_AUDIT_TEST_USER', 'postgres')
+
+
+@pytest.fixture()
+def db_name():
+    return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
+
+
+@pytest.fixture()
+def dns(db_user, db_name):
+    return 'postgres://{}@localhost/{}'.format(db_user, db_name)
 
 
 @pytest.fixture()
