@@ -6,6 +6,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+.eggs/
 .Python
 env/
 build/
@@ -52,3 +53,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# SublimeText
+*.sublime-*

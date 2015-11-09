@@ -28,6 +28,17 @@ Installation
     pip install PostgreSQL-Audit
 
 
+Running the tests
+-----------------
+
+::
+
+    git clone https://github.com/kvesteri/postgresql-audit.git
+    cd postgresql-audit
+    pip install tox
+    tox
+
+
 Flask extension
 ---------------
 

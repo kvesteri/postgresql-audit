@@ -21,30 +21,6 @@ def get_version():
     return re.search(pattern, contents, re.MULTILINE).group(1)
 
 
-extras_require = {
-    'test': [
-        'Flask==0.10.1',
-        'Flask-Login==0.2.11',
-        'Flask-SQLAlchemy==2.0',
-        'Jinja2==2.7.3',
-        'MarkupSafe==0.23',
-        'Werkzeug==0.10.1',
-        'flake8>=2.4.0',
-        'flexmock==0.9.7',
-        'isort>=4.2.2',
-        'itsdangerous==0.24',
-        'pytest>=2.3.5',
-        'psycopg2>=2.4.6',
-    ],
-}
-
-
-# Add all optional dependencies to testing requirements.
-for name, requirements in extras_require.items():
-    if name != 'test':
-        extras_require['test'] += requirements
-
-
 setup(
     name='PostgreSQL-Audit',
     version=get_version(),
@@ -64,7 +40,6 @@ setup(
         'SQLAlchemy>=0.9.4',
         'SQLAlchemy-Utils>=0.29.8'
     ],
-    extras_require=extras_require,
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
