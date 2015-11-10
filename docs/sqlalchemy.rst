@@ -158,3 +158,16 @@ Hence you can get the desired activities as follows:
 
 
 .. _hybrid_property: http://docs.sqlalchemy.org/en/latest/orm/extensions/hybrid.html?highlight=hybrid#sqlalchemy.ext.hybrid.hybrid_property
+
+
+Temporarily disabling inserts to the `activity` table
+-----------------------------------------------------
+
+There are cases where you might not want to track changes to your data, such as when doing big changes to a table. In those cases you can use the `VersioningManager.disable` context manager.
+
+.. code-block:: python
+
+    with versioning_manager.disable(session):
+        for i in range(1, 10000):
+            db.session.add(db.Product(name='Product %s' % i))
+        db.session.commit()

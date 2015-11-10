@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from datetime import timedelta
 from weakref import WeakSet
 
@@ -174,6 +175,17 @@ class VersioningManager(object):
     @property
     def transaction_values(self):
         return self.values
+
+    @contextmanager
+    def disable(self, session):
+        current_setting = session.execute(
+            "SELECT current_setting('session_replication_role')"
+        ).fetchone().current_setting
+        session.execute('SET LOCAL session_replication_role = "local"')
+        yield
+        session.execute('SET LOCAL session_replication_role = "{}"'.format(
+            current_setting,
+        ))
 
     def set_activity_values(self, session):
         table = self.activity_cls.__table__

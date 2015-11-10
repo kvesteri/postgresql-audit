@@ -11,8 +11,10 @@ BEGIN
         _ignored_cols_snip = ', ' || quote_literal(ignored_cols);
     END IF;
     _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
-             target_table ||
-             ' FOR EACH ROW EXECUTE PROCEDURE audit.create_activity(' ||
+             target_table || ' FOR EACH ROW ' ||
+             E'WHEN (current_setting(\'session_replication_role\') ' ||
+             E'<> \'local\')' ||
+             ' EXECUTE PROCEDURE audit.create_activity(' ||
              _ignored_cols_snip ||
              ');';
     RAISE NOTICE '%',_q_txt;
