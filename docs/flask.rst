@@ -68,7 +68,7 @@ we want to show the changelog of an article that contains all changes to this ar
         )
         article = db.relationship(Article, backref='tags')
 
-When tracking the changes to article we don't need any chagnes.
+When tracking the changes to article we don't need any changes.
 
 .. code-block:: python
 
@@ -90,7 +90,7 @@ When adding tags we need to make the generated activities use the article id as 
         db.session.commit()
 
 
-Now we can find all activites for given article with the following query.
+Now we can find all activities for given article with the following query.
 
 .. code-block:: python
 
@@ -112,3 +112,15 @@ Now we can find all activites for given article with the following query.
             )
         )
     ).order_by(Activity.issued_at)
+
+
+Recording IP address behind proxy
+---------------------------------
+
+By default PostgreSQL-Audit stores the client address as found in the request
+and does not attempt to make assumptions on server proxy configuration.
+Thus, in case the flask app runs after an http server (e.g nginx), and
+depending on configuration, flask may receive no IP. To overcome this, it is
+advised to follow `flask documentation on proxy setups`__.
+
+__ http://flask.pocoo.org/docs/0.10/deploying/wsgi-standalone/#proxy-setups

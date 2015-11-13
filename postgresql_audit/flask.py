@@ -42,7 +42,7 @@ def fetch_remote_addr():
     # Return None if we are outside of request context.
     if not context_available():
         return
-    return request.remote_addr
+    return request.remote_addr or None
 
 
 @contextmanager

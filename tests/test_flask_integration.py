@@ -107,6 +107,21 @@ def table_creator(client, db, models, activity_cls):
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestFlaskIntegration(object):
+    def test_client_addr_with_proxies(self, app, db, client, user, user_class):
+        login(client, user)
+        environ_base = dict(REMOTE_ADDR='')
+        proxy_headers = dict(X_FORWARDED_FOR='1.1.1.1,77.77.77.77')
+        client.get(url_for('.test_simple_flush'), environ_base=environ_base,
+                   headers=proxy_headers)
+
+        activities = (
+            db.session.query(versioning_manager.activity_cls)
+            .order_by('id DESC').all()
+        )
+        assert len(activities) == 2
+        assert activities[1].actor_id == user.id
+        assert activities[1].client_addr is None
+
     def test_simple_flushing_view(self, app, db, client, user, user_class):
         login(client, user)
         client.get(url_for('.test_simple_flush'))
