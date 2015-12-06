@@ -1,4 +1,5 @@
 import os
+import warnings
 from contextlib import contextmanager
 from datetime import timedelta
 from weakref import WeakSet
@@ -6,6 +7,7 @@ from weakref import WeakSet
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, INET, JSONB
+from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
@@ -188,7 +190,15 @@ class VersioningManager(object):
         ))
 
     def set_activity_values(self, session):
+        dialect = session.bind.engine.dialect
         table = self.activity_cls.__table__
+
+        if not isinstance(dialect, PGDialect):
+            warnings.warn('"{0}" is not a PostgreSQL dialect. No versioning '
+                          'data will be saved.'.format(dialect.__class__),
+                          RuntimeWarning)
+            return
+
         if self.values:
             values = convert_callables(self.transaction_values)
             stmt = (
