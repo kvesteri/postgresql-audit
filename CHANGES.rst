@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.5.2 (2016-01-09)
+^^^^^^^^^^^^^^^^^^
+
+- Avoid empty string INET value with Flask VersioningManager (#10, courtesy of asfaltboy)
+
+
 0.5.1 (2015-04-14)
 ^^^^^^^^^^^^^^^^^^
 
