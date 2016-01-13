@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.6.0 (2016-01-13)
+^^^^^^^^^^^^^^^^^^
+
+- Added support for activity schema configuration (#4, courtesy of jmagnusson)
+
+
 0.5.2 (2016-01-09)
 ^^^^^^^^^^^^^^^^^^
 
