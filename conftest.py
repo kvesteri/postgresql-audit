@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from postgresql_audit import versioning_manager
+from postgresql_audit import VersioningManager
 
 
 @pytest.fixture()
@@ -33,7 +33,7 @@ def base():
 @pytest.yield_fixture()
 def engine(dns):
     engine = create_engine(dns)
-    # engine.echo = True
+    engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
     yield engine
     engine.dispose()
 
@@ -54,9 +54,16 @@ def session(connection):
     session.close_all()
 
 
+@pytest.yield_fixture()
+def versioning_manager(base):
+    vm = VersioningManager()
+    vm.init(base)
+    yield vm
+    vm.remove_listeners()
+
+
 @pytest.fixture()
-def activity_cls(base):
-    versioning_manager.init(base)
+def activity_cls(versioning_manager):
     return versioning_manager.activity_cls
 
 
@@ -87,10 +94,10 @@ def models(user_class, article_class):
 
 
 @pytest.yield_fixture
-def table_creator(base, connection, session, models, activity_cls):
+def table_creator(base, versioning_manager, connection, session, models,
+                  activity_cls):
     sa.orm.configure_mappers()
     tx = connection.begin()
-    connection.execute('DROP SCHEMA IF EXISTS audit CASCADE')
     versioning_manager.activity_cls.__table__.create(connection)
     base.metadata.create_all(connection)
     tx.commit()

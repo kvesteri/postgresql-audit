@@ -6,16 +6,39 @@ from copy import copy
 from flask import g, request
 from flask.globals import _app_ctx_stack, _request_ctx_stack
 
-from .base import VersioningManager
+from .base import VersioningManager as BaseVersioningManager
 
 
-class FlaskVersioningManager(VersioningManager):
-    @property
-    def transaction_values(self):
+class VersioningManager(BaseVersioningManager):
+    _actor_cls = 'User'
+
+    def get_transaction_values(self):
         values = copy(self.values)
-        if hasattr(g, 'activity_values'):
+        if context_available() and hasattr(g, 'activity_values'):
             values.update(g.activity_values)
+        if 'client_addr' not in values:
+            values['client_addr'] = self.default_client_addr()
+        if 'actor_id' not in values:
+            values['actor_id'] = self.default_actor_id()
         return values
+
+    def default_actor_id(self):
+        from flask.ext.login import current_user
+
+        # Return None if we are outside of request context.
+        if not context_available():
+            return
+
+        try:
+            return current_user.id
+        except AttributeError:
+            return
+
+    def default_client_addr(self):
+        # Return None if we are outside of request context.
+        if not context_available():
+            return
+        return request.remote_addr or None
 
 
 def context_available():
@@ -25,33 +48,13 @@ def context_available():
     )
 
 
-def fetch_current_user_id():
-    from flask.ext.login import current_user
-
-    # Return None if we are outside of request context.
-    if not context_available():
-        return
-
-    try:
-        return current_user.id
-    except AttributeError:
-        return
-
-
-def fetch_remote_addr():
-    # Return None if we are outside of request context.
-    if not context_available():
-        return
-    return request.remote_addr or None
-
-
 @contextmanager
 def activity_values(**values):
+    if not context_available():
+        return
     g.activity_values = values
     yield
     del g.activity_values
 
 
-versioning_manager = FlaskVersioningManager(actor_cls='User')
-versioning_manager.values['actor_id'] = fetch_current_user_id
-versioning_manager.values['client_addr'] = fetch_remote_addr
+versioning_manager = VersioningManager()

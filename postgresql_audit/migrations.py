@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from .expressions import jsonb_change_key_name, jsonb_merge
 
 
-def get_activity_table():
+def get_activity_table(schema=None):
     return sa.Table(
         'activity',
         sa.MetaData(),
@@ -13,11 +13,11 @@ def get_activity_table():
         sa.Column('verb', sa.String),
         sa.Column('old_data', JSONB),
         sa.Column('changed_data', JSONB),
-        schema='audit',
+        schema=schema,
     )
 
 
-def alter_column(conn, table, column_name, func):
+def alter_column(conn, table, column_name, func, schema=None):
     """
     Run given callable against given table and given column in activity table
     jsonb data columns. This function is useful when you want to reflect type
@@ -59,8 +59,10 @@ def alter_column(conn, table, column_name, func):
         A callable to run against specific column in activity table jsonb data
         columns. The callable should take two parameters the jsonb value
         corresponding to given column_name and activity table object.
+    :param schema:
+        Optional name of schema to use.
     """
-    activity_table = get_activity_table()
+    activity_table = get_activity_table(schema=schema)
     query = (
         activity_table
         .update()
@@ -91,9 +93,10 @@ def alter_column(conn, table, column_name, func):
     return conn.execute(query)
 
 
-def change_column_name(conn, table, old_column_name, new_column_name):
+def change_column_name(conn, table, old_column_name, new_column_name,
+                       schema=None):
     """
-    Changes given audit.activity jsonb data column key. This function is useful
+    Changes given `activity` jsonb data column key. This function is useful
     when you want to reflect column name changes to activity table.
 
     ::
@@ -121,8 +124,10 @@ def change_column_name(conn, table, old_column_name, new_column_name):
         Name of the column to change
     :param new_column_name:
         New colum name
+    :param schema:
+        Optional name of schema to use.
     """
-    activity_table = get_activity_table()
+    activity_table = get_activity_table(schema=schema)
     query = (
         activity_table
         .update()
@@ -143,9 +148,9 @@ def change_column_name(conn, table, old_column_name, new_column_name):
     return conn.execute(query)
 
 
-def add_column(conn, table, column_name, default_value=None):
+def add_column(conn, table, column_name, default_value=None, schema=None):
     """
-    Adds given column to `audit.activity` table jsonb data columns.
+    Adds given column to `activity` table jsonb data columns.
 
     In the following example we reflect the changes made to our schema to
     activity table.
@@ -171,8 +176,10 @@ def add_column(conn, table, column_name, default_value=None):
         Name of the column to add
     :param default_value:
         The default value of the column
+    :param schema:
+        Optional name of schema to use.
     """
-    activity_table = get_activity_table()
+    activity_table = get_activity_table(schema=schema)
     data = {column_name: default_value}
     query = (
         activity_table
@@ -211,9 +218,9 @@ def add_column(conn, table, column_name, default_value=None):
     return conn.execute(query)
 
 
-def remove_column(conn, table, column_name):
+def remove_column(conn, table, column_name, schema=None):
     """
-    Removes given audit.activity jsonb data column key. This function is useful
+    Removes given `activity` jsonb data column key. This function is useful
     when you are doing schema changes that require removing a column.
 
     Let's say you've been using PostgreSQL-Audit for a while for a table called
@@ -238,8 +245,10 @@ def remove_column(conn, table, column_name):
         The table to remove the column from
     :param column_name:
         Name of the column to remove
+    :param schema:
+        Optional name of schema to use.
     """
-    activity_table = get_activity_table()
+    activity_table = get_activity_table(schema=schema)
     remove = sa.cast(column_name, sa.Text)
     query = (
         activity_table

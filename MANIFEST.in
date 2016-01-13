@@ -1,5 +1,5 @@
 include CHANGES.rst LICENSE README.rst conftest.py
-recursive-include postgresql_audit *.sql
+recursive-include postgresql_audit/templates *.sql
 recursive-exclude postgresql_audit *.pyc
 recursive-include tests *
 recursive-exclude tests *.pyc

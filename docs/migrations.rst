@@ -3,7 +3,7 @@ Migrations
 
 Usually your schema changes over time. The schema of PostgreSQL-Audit is very flexible, since it stores the data in JSONB columns. Your schema can change without the need of changing the version history JSONB data columns.
 
-However in case you want to show the version history on the application side you may want to reflect the changes you make to your schema to `old_data` and `changed_data` columns of `audit.activity` table. The other solution is to make your application code aware of all the schema changes that have happened over time. This can get a bit tedious if your schema is quickly evolving.
+However in case you want to show the version history on the application side you may want to reflect the changes you make to your schema to `old_data` and `changed_data` columns of `activity` table. The other solution is to make your application code aware of all the schema changes that have happened over time. This can get a bit tedious if your schema is quickly evolving.
 
 
 Changing column name

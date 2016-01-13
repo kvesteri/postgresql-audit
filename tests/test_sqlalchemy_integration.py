@@ -5,7 +5,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 
-from postgresql_audit import versioning_manager, VersioningManager
+from postgresql_audit import VersioningManager
 
 from .utils import last_activity
 
@@ -55,7 +55,8 @@ class TestActivityCreation(object):
     def test_manager_defaults(
         self,
         user_class,
-        session
+        session,
+        versioning_manager
     ):
         versioning_manager.values = {'actor_id': 1}
         user = user_class(name='John')
@@ -67,7 +68,8 @@ class TestActivityCreation(object):
     def test_callables_as_manager_defaults(
         self,
         user_class,
-        session
+        session,
+        versioning_manager
     ):
         versioning_manager.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
@@ -79,7 +81,8 @@ class TestActivityCreation(object):
     def test_raw_inserts(
         self,
         user_class,
-        session
+        session,
+        versioning_manager
     ):
         versioning_manager.values = {'actor_id': 1}
         session.execute(user_class.__table__.insert().values(name='John'))
@@ -103,10 +106,11 @@ class TestActivityCreation(object):
             sa.Integer
         )
         assert manager.activity_cls.actor
+        manager.remove_listeners()
 
     def test_data_expression_sql(self, activity_cls):
         assert str(activity_cls.data) == (
-            'jsonb_merge(audit.activity.old_data, audit.activity.changed_data)'
+            'jsonb_merge(activity.old_data, activity.changed_data)'
         )
 
     def test_data_expression(self, user, session, activity_cls):
@@ -133,12 +137,14 @@ class TestActivityCreation(object):
             sa.Integer
         )
         assert manager.activity_cls.actor
+        manager.remove_listeners()
 
     def test_disable_contextmanager(
         self,
         activity_cls,
         user_class,
-        session
+        session,
+        versioning_manager
     ):
         with versioning_manager.disable(session):
             user = user_class(name='Jack')

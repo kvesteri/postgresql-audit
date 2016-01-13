@@ -16,7 +16,7 @@
 -- you're interested in, into a temporary table where you CREATE any useful
 -- indexes and do your analysis.
 --
-CREATE TABLE audit.activity (
+CREATE TABLE ${schema_prefix}activity (
     id BIGSERIAL primary key,
     schema_name TEXT,
     table_name TEXT,
@@ -32,4 +32,4 @@ CREATE TABLE audit.activity (
     changed_data JSONB
 );
 
-REVOKE ALL ON audit.activity FROM public;
+${revoke_cmd}

@@ -1,5 +1,5 @@
 -- http://schinckel.net/2014/09/29/adding-json%28b%29-operators-to-postgresql/
-CREATE OR REPLACE FUNCTION "jsonb_subtract"(
+CREATE OR REPLACE FUNCTION jsonb_subtract(
   "json" jsonb,
   "key_to_remove" TEXT
 )
@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION "jsonb_subtract"(
   LANGUAGE sql
   IMMUTABLE
   STRICT
-AS $function$
+AS $$function$$
 SELECT CASE WHEN "json" ? "key_to_remove" THEN COALESCE(
   (SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
      FROM jsonb_each("json")
@@ -16,7 +16,7 @@ SELECT CASE WHEN "json" ? "key_to_remove" THEN COALESCE(
 )::jsonb
 ELSE "json"
 END
-$function$;
+$$function$$;
 
 DROP OPERATOR IF EXISTS - (jsonb, text);
 CREATE OPERATOR - (
@@ -26,7 +26,7 @@ CREATE OPERATOR - (
 );
 
 
-CREATE OR REPLACE FUNCTION "jsonb_subtract"(
+CREATE OR REPLACE FUNCTION jsonb_subtract(
   "json" jsonb,
   "keys" TEXT[]
 )
@@ -34,7 +34,7 @@ CREATE OR REPLACE FUNCTION "jsonb_subtract"(
   LANGUAGE sql
   IMMUTABLE
   STRICT
-AS $function$
+AS $$function$$
 SELECT CASE WHEN "json" ?| "keys" THEN COALESCE(
   (SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
      FROM jsonb_each("json")
@@ -43,7 +43,7 @@ SELECT CASE WHEN "json" ?| "keys" THEN COALESCE(
 )::jsonb
 ELSE "json"
 END
-$function$;
+$$function$$;
 
 DROP OPERATOR IF EXISTS - (jsonb, text[]);
 CREATE OPERATOR - (
@@ -52,7 +52,7 @@ CREATE OPERATOR - (
   PROCEDURE = jsonb_subtract
 );
 
-CREATE OR REPLACE FUNCTION "jsonb_subtract"(
+CREATE OR REPLACE FUNCTION jsonb_subtract(
   "json" jsonb,
   "remove" jsonb
 )
@@ -60,7 +60,7 @@ CREATE OR REPLACE FUNCTION "jsonb_subtract"(
   LANGUAGE sql
   IMMUTABLE
   STRICT
-AS $function$
+AS $$function$$
 SELECT COALESCE(
   (
     SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
@@ -71,7 +71,7 @@ SELECT COALESCE(
   ),
   '{}'
 )::jsonb
-$function$;
+$$function$$;
 
 DROP OPERATOR IF EXISTS - (jsonb, jsonb);
 
@@ -81,11 +81,11 @@ CREATE OPERATOR - (
   PROCEDURE = jsonb_subtract
 );
 
-CREATE OR REPLACE FUNCTION public.jsonb_merge(data jsonb, merge_data jsonb)
+CREATE OR REPLACE FUNCTION jsonb_merge(data jsonb, merge_data jsonb)
 RETURNS jsonb
 IMMUTABLE
 LANGUAGE sql
-AS $$
+AS $$$$
     SELECT ('{'||string_agg(to_json(key)||':'||value, ',')||'}')::jsonb
     FROM (
         WITH to_merge AS (
@@ -97,28 +97,28 @@ AS $$
         UNION ALL
         SELECT * FROM to_merge
     ) t;
-$$;
+$$$$;
 
-CREATE OR REPLACE FUNCTION public.jsonb_change_key_name(data jsonb, old_key text, new_key text)
+CREATE OR REPLACE FUNCTION jsonb_change_key_name(data jsonb, old_key text, new_key text)
 RETURNS jsonb
 IMMUTABLE
 LANGUAGE sql
-AS $$
+AS $$$$
     SELECT ('{'||string_agg(to_json(CASE WHEN key = old_key THEN new_key ELSE key END)||':'||value, ',')||'}')::jsonb
     FROM (
         SELECT *
         FROM jsonb_each(data)
     ) t;
-$$;
+$$$$;
 
-CREATE OR REPLACE FUNCTION audit.create_activity() RETURNS TRIGGER AS $body$
+CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity() RETURNS TRIGGER AS $$body$$
 DECLARE
-    audit_row audit.activity;
-    audit_row_values audit.activity;
+    audit_row ${schema_prefix}activity;
+    audit_row_values ${schema_prefix}activity;
     excluded_cols text[] = ARRAY[]::text[];
 BEGIN
     IF TG_WHEN <> 'AFTER' THEN
-        RAISE EXCEPTION 'audit.create_activity() may only run as an AFTER trigger';
+        RAISE EXCEPTION '${schema_prefix}create_activity() may only run as an AFTER trigger';
     END IF;
 
     BEGIN
@@ -126,7 +126,7 @@ BEGIN
     EXCEPTION WHEN others THEN
     END;
 
-    audit_row.id = nextval('audit.activity_id_seq');
+    audit_row.id = nextval('${schema_prefix}activity_id_seq');
     audit_row.schema_name = TG_TABLE_SCHEMA::text;
     audit_row.table_name = TG_TABLE_NAME::text;
     audit_row.relid = TG_RELID;
@@ -166,19 +166,19 @@ BEGIN
     ELSIF (TG_OP = 'INSERT' AND TG_LEVEL = 'ROW') THEN
         audit_row.changed_data = row_to_json(NEW.*)::jsonb - excluded_cols;
     ELSE
-        RAISE EXCEPTION '[audit.create_activity] - Trigger func added as trigger for unhandled case: %, %', TG_OP, TG_LEVEL;
+        RAISE EXCEPTION '[${schema_prefix}create_activity] - Trigger func added as trigger for unhandled case: %, %', TG_OP, TG_LEVEL;
         RETURN NULL;
     END IF;
-    INSERT INTO audit.activity VALUES (audit_row.*);
+    INSERT INTO ${schema_prefix}activity VALUES (audit_row.*);
     RETURN NULL;
 END;
-$body$
+$$body$$
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public;
 
 
-COMMENT ON FUNCTION audit.create_activity() IS $body$
+COMMENT ON FUNCTION ${schema_prefix}create_activity() IS $$body$$
 Track changes to a table at the statement and/or row level.
 
 Optional parameters to trigger in CREATE TRIGGER call:
@@ -207,4 +207,4 @@ want to log row values.
 Note that the user name logged is the login role for the session. The audit trigger
 cannot obtain the active role because it is reset by the SECURITY DEFINER invocation
 of the audit trigger its self.
-$body$;
+$$body$$;

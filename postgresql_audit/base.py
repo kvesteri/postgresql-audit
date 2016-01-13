@@ -1,4 +1,5 @@
 import os
+import string
 import warnings
 from contextlib import contextmanager
 from datetime import timedelta
@@ -58,32 +59,10 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
-def audit_table(table, exclude_columns=None):
-    args = [table.name]
-    if exclude_columns:
-        for column in exclude_columns:
-            if column not in table.c:
-                raise ImproperlyConfigured(
-                    "Could not configure versioning. Table '{}'' does "
-                    "not have a column named '{}'.".format(
-                        table.name, column
-                    )
-                )
-        args.append(array(exclude_columns))
-
-    query = sa.select(
-        [sa.func.audit.audit_table(*args)]
-    )
-    if query not in cached_statements:
-        cached_statements[query] = StatementExecutor(query)
-    listener = (table, 'after_create', cached_statements[query])
-    if not sa.event.contains(*listener):
-        sa.event.listen(*listener)
-
-
-def activity_base(base):
+def activity_base(base, schema=None):
     class ActivityBase(base):
         __abstract__ = True
+        __table_args__ = {'schema': schema}
         id = sa.Column(sa.BigInteger, primary_key=True)
         schema_name = sa.Column(sa.Text)
         table_name = sa.Column(sa.Text)
@@ -133,27 +112,12 @@ def convert_callables(values):
 
 
 class VersioningManager(object):
-    table_listeners = [
-        (
-            'before_create',
-            sa.schema.DDL(read_file('schema.sql')),
-        ),
-        (
-            'after_create',
-            sa.schema.DDL(
-                read_file('create_activity.sql').replace('%', '%%') +
-                read_file('audit_table.sql').replace('%', '%%')
-            )
-        ),
-        (
-            'after_drop',
-            sa.schema.DDL('DROP SCHEMA audit CASCADE')
-        )
-    ]
+    _actor_cls = None
 
-    def __init__(self, actor_cls=None):
+    def __init__(self, actor_cls=None, schema_name=None):
+        if actor_cls is not None:
+            self._actor_cls = actor_cls
         self.values = {}
-        self._actor_cls = actor_cls
         self.listeners = (
             (
                 orm.mapper,
@@ -171,11 +135,13 @@ class VersioningManager(object):
                 self.receive_after_flush,
             ),
         )
+        self.schema_name = schema_name
+        self.table_listener_mapping = self.get_table_listener_mapping()
+        self.table_listeners = list(self.table_listener_mapping.items())
         self.pending_classes = WeakSet()
         self.cached_ddls = {}
 
-    @property
-    def transaction_values(self):
+    def get_transaction_values(self):
         return self.values
 
     @contextmanager
@@ -189,6 +155,66 @@ class VersioningManager(object):
             current_setting,
         ))
 
+    def render_tmpl(self, tmpl_name):
+        file_contents = read_file(
+            'templates/{}'.format(tmpl_name)
+        ).replace('%', '%%')
+        tmpl = string.Template(file_contents)
+        context = dict(schema_name=self.schema_name)
+
+        if self.schema_name is None:
+            context['schema_prefix'] = ''
+            context['revoke_cmd'] = ''
+        else:
+            context['schema_prefix'] = '{}.'.format(self.schema_name)
+            context['revoke_cmd'] = (
+                'REVOKE ALL ON {schema_prefix}activity FROM public;'
+            ).format(**context)
+
+        return tmpl.substitute(**context)
+
+    def get_table_listener_mapping(self):
+        mapping = {
+            'after_create': sa.schema.DDL(
+                self.render_tmpl('create_activity.sql') +
+                self.render_tmpl('audit_table_func.sql')
+            ),
+        }
+        if self.schema_name is not None:
+            mapping.update({
+                'before_create': sa.schema.DDL(
+                    self.render_tmpl('create_schema.sql')
+                ),
+                'after_drop': sa.schema.DDL(
+                    self.render_tmpl('drop_schema.sql')
+                ),
+            })
+        return mapping
+
+    def audit_table(self, table, exclude_columns=None):
+        args = [table.name]
+        if exclude_columns:
+            for column in exclude_columns:
+                if column not in table.c:
+                    raise ImproperlyConfigured(
+                        "Could not configure versioning. Table '{}'' does "
+                        "not have a column named '{}'.".format(
+                            table.name, column
+                        )
+                    )
+            args.append(array(exclude_columns))
+
+        if self.schema_name is None:
+            func = sa.func.audit_table
+        else:
+            func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
+        query = sa.select([func(*args)])
+        if query not in cached_statements:
+            cached_statements[query] = StatementExecutor(query)
+        listener = (table, 'after_create', cached_statements[query])
+        if not sa.event.contains(*listener):
+            sa.event.listen(*listener)
+
     def set_activity_values(self, session):
         dialect = session.bind.engine.dialect
         table = self.activity_cls.__table__
@@ -199,8 +225,9 @@ class VersioningManager(object):
                           RuntimeWarning)
             return
 
-        if self.values:
-            values = convert_callables(self.transaction_values)
+        values = convert_callables(self.get_transaction_values())
+
+        if values:
             stmt = (
                 table
                 .update()
@@ -235,7 +262,7 @@ class VersioningManager(object):
         instrumentation process.
         """
         for cls in self.pending_classes:
-            audit_table(cls.__table__, cls.__versioned__.get('exclude'))
+            self.audit_table(cls.__table__, cls.__versioned__.get('exclude'))
         assign_actor(self.base, self.activity_cls, self.actor_cls)
 
     def attach_table_listeners(self):
@@ -281,9 +308,8 @@ class VersioningManager(object):
             sa.event.remove(*listener)
 
     def activity_model_factory(self, base):
-        class Activity(activity_base(base)):
+        class Activity(activity_base(base, self.schema_name)):
             __tablename__ = 'activity'
-            __table_args__ = {'schema': 'audit'}
 
         return Activity
 

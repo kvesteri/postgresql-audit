@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass, ignored_cols text[]) RETURNS void AS $body$
+CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass, ignored_cols text[]) RETURNS void AS $$body$$
 DECLARE
     stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
     _q_txt text;
@@ -14,30 +14,30 @@ BEGIN
              target_table || ' FOR EACH ROW ' ||
              E'WHEN (current_setting(\'session_replication_role\') ' ||
              E'<> \'local\')' ||
-             ' EXECUTE PROCEDURE audit.create_activity(' ||
+             ' EXECUTE PROCEDURE ${schema_prefix}create_activity(' ||
              _ignored_cols_snip ||
              ');';
     RAISE NOTICE '%',_q_txt;
     EXECUTE _q_txt;
     stm_targets = 'TRUNCATE';
 END;
-$body$
+$$body$$
 language 'plpgsql';
 
-COMMENT ON FUNCTION audit.audit_table(regclass, text[]) IS $body$
+COMMENT ON FUNCTION ${schema_prefix}audit_table(regclass, text[]) IS $$body$$
 Add auditing support to a table.
 
 Arguments:
    target_table:     Table name, schema qualified if not on search_path
    ignored_cols:     Columns to exclude from update diffs, ignore updates that change only ignored cols.
-$body$;
+$$body$$;
 
 
-CREATE OR REPLACE FUNCTION audit.audit_table(target_table regclass) RETURNS void AS $body$
-SELECT audit.audit_table($1, ARRAY[]::text[]);
-$body$ LANGUAGE SQL;
+CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass) RETURNS void AS $$body$$
+SELECT ${schema_prefix}audit_table($$1, ARRAY[]::text[]);
+$$body$$ LANGUAGE SQL;
 
 
-COMMENT ON FUNCTION audit.audit_table(regclass) IS $body$
+COMMENT ON FUNCTION ${schema_prefix}audit_table(regclass) IS $$body$$
 Add auditing support to the given table. Row-level changes will be logged with full client query text. No cols are ignored.
-$body$;
+$$body$$;

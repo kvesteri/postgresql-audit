@@ -9,7 +9,7 @@ def activity_values(session):
     session.execute(
         '''CREATE TEMP TABLE activity_values
         ON COMMIT DELETE ROWS AS
-        SELECT * FROM audit.activity WHERE 1 = 2
+        SELECT * FROM activity WHERE 1 = 2
         '''
     )
     yield
@@ -72,7 +72,7 @@ class TestActivityCreation(object):
         ('field', 'value'),
         (
             ('target_id', '1'),
-            ('actor_id', '1')
+            ('actor_id', '1'),
         )
     )
     def test_custom_fields(self, activity_values, session, user, field, value):
@@ -92,7 +92,7 @@ class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
     def audit_trigger_creator(self, session, user_class):
         session.execute(
-            '''SELECT audit.audit_table('{0}', '{{"age"}}')'''.format(
+            '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
                 user_class.__tablename__
             )
         )
