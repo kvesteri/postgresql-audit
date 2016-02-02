@@ -10,7 +10,7 @@ from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, INET, JSONB
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy_utils import get_class_by_table
+from sqlalchemy_utils import get_class_by_table, get_primary_keys
 
 from .expressions import jsonb_merge
 
@@ -319,6 +319,41 @@ class VersioningManager(object):
         self.base = base
         self.activity_cls = self.activity_model_factory(base)
         self.attach_listeners()
+
+    def revert(self, obj, time):
+        Activity = self.activity_cls
+
+        primary_key_cond = sa.and_(
+            *(
+                Activity.data[c.name].astext == str(getattr(obj, c.name))
+                for c in get_primary_keys(obj).values()
+            )
+        )
+
+        query = sa.select(
+            [Activity.data]
+        ).where(
+            sa.and_(
+                Activity.transaction_id == (
+                    sa.select(
+                        [sa.func.max(Activity.transaction_id)]
+                    ).where(
+                        sa.and_(
+                            Activity.table_name == obj.__tablename__,
+                            primary_key_cond,
+                            Activity.issued_at < time
+                        )
+                    )
+                ),
+                primary_key_cond,
+                Activity.table_name == obj.__tablename__
+            )
+        )
+        session = sa.orm.object_session(obj)
+
+        data = session.execute(query).scalar()
+        for key, value in data.items():
+            setattr(obj, key, value)
 
 
 versioning_manager = VersioningManager()
