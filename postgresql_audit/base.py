@@ -220,9 +220,11 @@ class VersioningManager(object):
         table = self.activity_cls.__table__
 
         if not isinstance(dialect, PGDialect):
-            warnings.warn('"{0}" is not a PostgreSQL dialect. No versioning '
-                          'data will be saved.'.format(dialect.__class__),
-                          RuntimeWarning)
+            warnings.warn(
+                '"{0}" is not a PostgreSQL dialect. No versioning data will '
+                'be saved.'.format(dialect.__class__),
+                RuntimeWarning
+            )
             return
 
         values = convert_callables(self.get_transaction_values())
