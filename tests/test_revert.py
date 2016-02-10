@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestRevert(object):
-    def test_operation_after_commit(
+    def test_using_transaction_time(
         self,
         activity_cls,
         user_class,
@@ -15,6 +15,25 @@ class TestRevert(object):
     ):
         user = user_class(name='Jack')
         session.add(user)
+        session.commit()
+        time = datetime.now()
+        user.name = 'John'
+        session.commit()
+        versioning_manager.revert(user, time)
+        session.commit()
+        assert user.name == 'Jack'
+
+    def test_using_transaction_time_and_multiple_objects(
+        self,
+        activity_cls,
+        user_class,
+        versioning_manager,
+        session
+    ):
+        user = user_class(name='Jack')
+        session.add(user)
+        session.commit()
+        session.add(user_class(name='Tim'))
         session.commit()
         time = datetime.now()
         user.name = 'John'

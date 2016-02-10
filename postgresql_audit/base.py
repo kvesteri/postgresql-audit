@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table, get_primary_keys
 
-from .expressions import jsonb_merge
+from .expressions import ExpressionReflector, jsonb_merge
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
@@ -320,33 +320,86 @@ class VersioningManager(object):
         self.activity_cls = self.activity_model_factory(base)
         self.attach_listeners()
 
-    def revert(self, obj, time):
-        Activity = self.activity_cls
-
-        primary_key_cond = sa.and_(
+    def build_condition_for_obj(self, obj):
+        return sa.and_(
+            self.activity_cls.table_name == obj.__tablename__,
             *(
-                Activity.data[c.name].astext == str(getattr(obj, c.name))
+                self.activity_cls.data[c.name].astext ==
+                str(getattr(obj, c.name))
                 for c in get_primary_keys(obj).values()
             )
         )
 
+    def get_last_transaction_id_query(self, obj, time=None):
+        condition = self.build_condition_for_obj(obj)
+        if time:
+            condition = sa.and_(condition, self.activity_cls.issued_at < time)
+        return sa.select(
+            [sa.func.max(self.activity_cls.transaction_id)]
+        ).where(condition)
+
+    def resurrect(self, session, model, expr):
+        """
+
+        Resurrects objects for given session and given expression.
+
+        ::
+
+
+            versioning_manager.resurrect(
+                session,
+                User,
+                User.id == 3
+            )
+
+        This method uses the greatest-n-per-group algorithm, for more info
+        see: http://stackoverflow.com/questions/7745609
+        """
+        reflected = ExpressionReflector(self.activity_cls)(expr)
+        alias = sa.orm.aliased(self.activity_cls)
+        query = sa.select([self.activity_cls.data]).select_from(
+            self.activity_cls.__table__.outerjoin(
+                alias,
+                sa.and_(
+                    self.activity_cls.table_name == alias.table_name,
+                    sa.and_(
+                        self.activity_cls.data[c.name] == alias.data[c.name]
+                        for c in get_primary_keys(model).values()
+                    ),
+                    self.activity_cls.issued_at < alias.issued_at
+                )
+            )
+        ).where(
+            sa.and_(
+                alias.id.is_(None),
+                reflected,
+                self.activity_cls.verb == 'delete'
+            )
+        )
+        data = session.execute(query).fetchall()
+        for row in data:
+            session.add(model(**row[0]))
+
+    def revert(self, obj, time):
+        """
+        Revert an object's data to given point in time.
+
+        ::
+
+
+            versioning_manager.revert(user, datetime(2011, 1, 1))
+        """
+
+        Activity = self.activity_cls
         query = sa.select(
             [Activity.data]
         ).where(
             sa.and_(
-                Activity.transaction_id == (
-                    sa.select(
-                        [sa.func.max(Activity.transaction_id)]
-                    ).where(
-                        sa.and_(
-                            Activity.table_name == obj.__tablename__,
-                            primary_key_cond,
-                            Activity.issued_at < time
-                        )
-                    )
+                Activity.transaction_id == self.get_last_transaction_id_query(
+                    obj,
+                    time
                 ),
-                primary_key_cond,
-                Activity.table_name == obj.__tablename__
+                self.build_condition_for_obj(obj)
             )
         )
         session = sa.orm.object_session(obj)
