@@ -432,6 +432,8 @@ class Resurrector(object):
         data = session.execute(
             self.resurrect_query(activity_cls, session, model, id)
         ).scalar()
+        if data is None:
+            return None
         obj = model(**data)
         session.add(obj)
         return obj
@@ -453,6 +455,7 @@ class Resurrector(object):
         return sa.select([activity_cls.data]).where(
             sa.and_(
                 activity_cls.table_name == model.__tablename__,
+                activity_cls.verb == 'delete',
                 *(
                     activity_cls.data[column.name].astext ==
                     str(id[index])

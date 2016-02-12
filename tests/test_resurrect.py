@@ -14,6 +14,18 @@ class TestResurrectAll(object):
         session.commit()
         return user_id
 
+    def test_returns_empty_list_if_no_objects_where_resurrected(
+        self,
+        User,
+        versioning_manager,
+        session
+    ):
+        assert versioning_manager.resurrect_all(
+            session,
+            User,
+            User.id == 1
+        ) == []
+
     def test_simple_resurrect(
         self,
         User,
@@ -83,6 +95,18 @@ class TestResurrect(object):
         session.delete(user)
         session.commit()
         return user_id
+
+    def test_resurrect_with_existing_non_deleted_object_returns_none(
+        self,
+        User,
+        versioning_manager,
+        session,
+    ):
+        user = User(name='Jack')
+        session.add(user)
+        session.commit()
+
+        assert versioning_manager.resurrect(session, User, user) is None
 
     def test_simple_resurrect(
         self,
