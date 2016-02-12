@@ -63,7 +63,7 @@ def versioning_manager(base):
 
 
 @pytest.fixture()
-def activity_cls(versioning_manager):
+def Activity(versioning_manager):
     return versioning_manager.activity_cls
 
 
@@ -94,8 +94,14 @@ def models(User, Article):
 
 
 @pytest.yield_fixture
-def table_creator(base, versioning_manager, connection, session, models,
-                  activity_cls):
+def table_creator(
+    base,
+    versioning_manager,
+    connection,
+    session,
+    models,
+    Activity
+):
     sa.orm.configure_mappers()
     tx = connection.begin()
     versioning_manager.activity_cls.__table__.create(connection)

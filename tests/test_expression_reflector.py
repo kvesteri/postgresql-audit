@@ -7,11 +7,11 @@ from sqlalchemy.dialects import postgresql
 from postgresql_audit.expressions import ExpressionReflector
 
 
-@pytest.mark.usefixtures('activity_cls')
+@pytest.mark.usefixtures('Activity')
 class TestExpressionReflector(object):
     @pytest.fixture
-    def reflector(self, activity_cls):
-        return ExpressionReflector(activity_cls)
+    def reflector(self, Activity):
+        return ExpressionReflector(Activity)
 
     def test_binary_expression_reflected_column_and_scalar(
         self,
@@ -46,12 +46,12 @@ class TestExpressionReflector(object):
         self,
         reflector,
         User,
-        activity_cls
+        Activity
     ):
         compiled = reflector(
             sa.and_(
                 User.id == 3,
-                activity_cls.issued_at > datetime(2011, 1, 1)
+                Activity.issued_at > datetime(2011, 1, 1)
             )
         ).compile(
             dialect=postgresql.dialect()

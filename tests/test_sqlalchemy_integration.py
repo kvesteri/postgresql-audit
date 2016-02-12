@@ -10,7 +10,7 @@ from postgresql_audit import VersioningManager
 from .utils import last_activity
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
@@ -26,7 +26,7 @@ class TestActivityCreation(object):
 
     def test_operation_after_commit(
         self,
-        activity_cls,
+        Activity,
         User,
         session
     ):
@@ -36,11 +36,11 @@ class TestActivityCreation(object):
         user = User(name='Jack')
         session.add(user)
         session.commit()
-        assert session.query(activity_cls).count() == 2
+        assert session.query(Activity).count() == 2
 
     def test_operation_after_rollback(
         self,
-        activity_cls,
+        Activity,
         User,
         session
     ):
@@ -50,7 +50,7 @@ class TestActivityCreation(object):
         user = User(name='John')
         session.add(user)
         session.commit()
-        assert session.query(activity_cls).count() == 1
+        assert session.query(Activity).count() == 1
 
     def test_manager_defaults(
         self,
@@ -92,8 +92,8 @@ class TestActivityCreation(object):
 
         assert activity['actor_id'] == '1'
 
-    def test_activity_repr(self, activity_cls):
-        assert repr(activity_cls(id=3, table_name='user')) == (
+    def test_activity_repr(self, Activity):
+        assert repr(Activity(id=3, table_name='user')) == (
             "<Activity table_name='user' id=3>"
         )
 
@@ -108,17 +108,17 @@ class TestActivityCreation(object):
         assert manager.activity_cls.actor
         manager.remove_listeners()
 
-    def test_data_expression_sql(self, activity_cls):
-        assert str(activity_cls.data) == (
+    def test_data_expression_sql(self, Activity):
+        assert str(Activity.data) == (
             'jsonb_merge(activity.old_data, activity.changed_data)'
         )
 
-    def test_data_expression(self, user, session, activity_cls):
+    def test_data_expression(self, user, session, Activity):
         user.name = 'Luke'
         session.commit()
-        assert session.query(activity_cls).filter(
-            activity_cls.table_name == 'user',
-            activity_cls.data['id'].cast(sa.Integer) == user.id
+        assert session.query(Activity).filter(
+            Activity.table_name == 'user',
+            Activity.data['id'].cast(sa.Integer) == user.id
         ).count() == 2
 
     def test_custom_string_actor_class(self):
@@ -141,7 +141,7 @@ class TestActivityCreation(object):
 
     def test_disable_contextmanager(
         self,
-        activity_cls,
+        Activity,
         User,
         session,
         versioning_manager
@@ -150,22 +150,22 @@ class TestActivityCreation(object):
             user = User(name='Jack')
             session.add(user)
             session.commit()
-        assert session.query(activity_cls).count() == 0
+        assert session.query(Activity).count() == 0
 
         user = User(name='Jack')
         session.add(user)
         session.commit()
-        assert session.query(activity_cls).count() == 1
+        assert session.query(Activity).count() == 1
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestColumnExclusion(object):
     """
     Test column exclusion with polymorphic inheritance and column aliases to
     cover as many edge cases as possible.
     """
     @pytest.fixture
-    def textitem_cls(self, base):
+    def TextItem(self, base):
         class TextItem(base):
             __tablename__ = 'textitem'
             __versioned__ = {'exclude': ['_created_at']}
@@ -178,13 +178,13 @@ class TestColumnExclusion(object):
         return TextItem
 
     @pytest.fixture
-    def article_cls(self, textitem_cls):
-        class Article(textitem_cls):
+    def Article(self, TextItem):
+        class Article(TextItem):
             __tablename__ = 'article'
             __versioned__ = {'exclude': ['_updated_at']}
             id = sa.Column(
                 sa.Integer,
-                sa.ForeignKey(textitem_cls.id),
+                sa.ForeignKey(TextItem.id),
                 primary_key=True
             )
             updated_at = sa.Column('_updated_at', sa.DateTime)
@@ -194,12 +194,12 @@ class TestColumnExclusion(object):
         return Article
 
     @pytest.fixture
-    def models(self, article_cls, textitem_cls):
-        return [article_cls, textitem_cls]
+    def models(self, Article, TextItem):
+        return [Article, TextItem]
 
     @pytest.fixture
-    def article(self, article_cls, session):
-        article = article_cls(
+    def article(self, Article, session):
+        article = Article(
             updated_at=datetime(2001, 1, 1),
             created_at=datetime(2000, 1, 1),
             title='Some title',
@@ -214,19 +214,19 @@ class TestColumnExclusion(object):
         table_creator,
         article,
         session,
-        activity_cls
+        Activity
     ):
         article.updated_at = datetime(2002, 1, 1)
         session.commit()
-        assert session.query(activity_cls).count() == 2
+        assert session.query(Activity).count() == 2
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestActivityObject(object):
-    def test_activity_object(self, session, activity_cls, User):
+    def test_activity_object(self, session, Activity, User):
         user = User(name='John')
         session.add(user)
         session.commit()
-        activity = session.query(activity_cls).first()
+        activity = session.query(Activity).first()
         assert activity.object.__class__ == user.__class__
         assert activity.object.id == user.id

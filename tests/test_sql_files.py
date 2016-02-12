@@ -16,7 +16,7 @@ def activity_values(session):
     session.execute('DROP TABLE activity_values')
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
@@ -87,7 +87,7 @@ class TestActivityCreation(object):
         assert activity[field] == value
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
     def audit_trigger_creator(self, session, User):

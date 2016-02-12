@@ -4,11 +4,10 @@ from datetime import datetime
 import pytest
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestRevert(object):
     def test_using_transaction_time(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session
@@ -25,7 +24,6 @@ class TestRevert(object):
 
     def test_using_transaction_time_and_multiple_objects(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session
@@ -44,7 +42,6 @@ class TestRevert(object):
 
     def test_using_activity_id(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session

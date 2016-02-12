@@ -11,7 +11,7 @@ from postgresql_audit import (
 from .utils import last_activity
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestChangeColumnName(object):
     def test_only_updates_given_table(
         self,
@@ -48,7 +48,7 @@ class TestChangeColumnName(object):
         }
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestRemoveColumn(object):
     def test_only_updates_given_table(
         self,
@@ -84,7 +84,7 @@ class TestRemoveColumn(object):
         }
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestAddColumn(object):
     def test_only_updates_given_table(
         self,
@@ -125,7 +125,7 @@ class TestAddColumn(object):
         assert activity['changed_data'] == {'name': 'Luke'}
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestAlterColumn(object):
     def test_only_updates_given_table(
         self,

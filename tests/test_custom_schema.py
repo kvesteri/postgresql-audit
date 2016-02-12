@@ -20,7 +20,7 @@ def versioning_manager(schema_name):
 
 
 @pytest.yield_fixture()
-def activity_cls(base, versioning_manager):
+def Activity(base, versioning_manager):
     versioning_manager.init(base)
     yield versioning_manager.activity_cls
     versioning_manager.remove_listeners()
@@ -46,9 +46,8 @@ def table_creator(
     session.commit()
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestCustomSchemaActivityCreation(object):
-
     def test_insert(self, user, connection, schema_name):
         activity = last_activity(connection, schema=schema_name)
         assert activity['old_data'] is None
@@ -63,7 +62,7 @@ class TestCustomSchemaActivityCreation(object):
 
     def test_operation_after_commit(
         self,
-        activity_cls,
+        Activity,
         User,
         session
     ):
@@ -73,11 +72,11 @@ class TestCustomSchemaActivityCreation(object):
         user = User(name='Jack')
         session.add(user)
         session.commit()
-        assert session.query(activity_cls).count() == 2
+        assert session.query(Activity).count() == 2
 
     def test_operation_after_rollback(
         self,
-        activity_cls,
+        Activity,
         User,
         session
     ):
@@ -87,7 +86,7 @@ class TestCustomSchemaActivityCreation(object):
         user = User(name='John')
         session.add(user)
         session.commit()
-        assert session.query(activity_cls).count() == 1
+        assert session.query(Activity).count() == 1
 
     def test_manager_defaults(
         self,
@@ -132,8 +131,8 @@ class TestCustomSchemaActivityCreation(object):
 
         assert activity['actor_id'] == '1'
 
-    def test_activity_repr(self, activity_cls):
-        assert repr(activity_cls(id=3, table_name='user')) == (
+    def test_activity_repr(self, Activity):
+        assert repr(Activity(id=3, table_name='user')) == (
             "<Activity table_name='user' id=3>"
         )
 
@@ -151,17 +150,17 @@ class TestCustomSchemaActivityCreation(object):
         assert manager.activity_cls.actor
         manager.remove_listeners()
 
-    def test_data_expression_sql(self, activity_cls):
-        assert str(activity_cls.data) == (
+    def test_data_expression_sql(self, Activity):
+        assert str(Activity.data) == (
             'jsonb_merge(audit.activity.old_data, audit.activity.changed_data)'
         )
 
-    def test_data_expression(self, user, session, activity_cls):
+    def test_data_expression(self, user, session, Activity):
         user.name = 'Luke'
         session.commit()
-        assert session.query(activity_cls).filter(
-            activity_cls.table_name == 'user',
-            activity_cls.data['id'].cast(sa.Integer) == user.id
+        assert session.query(Activity).filter(
+            Activity.table_name == 'user',
+            Activity.data['id'].cast(sa.Integer) == user.id
         ).count() == 2
 
     def test_custom_string_actor_class(self, schema_name):

@@ -2,7 +2,7 @@
 import pytest
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestResurrect(object):
     @pytest.fixture
     def user_id(self, User, session):
@@ -16,7 +16,6 @@ class TestResurrect(object):
 
     def test_simple_resurrect(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session,
@@ -32,7 +31,6 @@ class TestResurrect(object):
 
     def test_returns_resurrected_objects(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session,
@@ -48,7 +46,6 @@ class TestResurrect(object):
 
     def test_resurrects_always_latest_version(
         self,
-        activity_cls,
         User,
         versioning_manager,
         session,

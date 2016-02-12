@@ -81,7 +81,7 @@ def versioning_manager(db):
 
 
 @pytest.yield_fixture()
-def activity_cls(versioning_manager):
+def Activity(versioning_manager):
     yield versioning_manager.activity_cls
 
 
@@ -98,7 +98,7 @@ def client(app):
 
 
 @pytest.yield_fixture
-def table_creator(client, db, models, activity_cls, versioning_manager):
+def table_creator(client, db, models, Activity, versioning_manager):
     db.configure_mappers()
     conn = db.session.connection()
     versioning_manager.activity_cls.__table__.create(conn)
@@ -110,9 +110,8 @@ def table_creator(client, db, models, activity_cls, versioning_manager):
     db.session.commit()
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestFlaskIntegration(object):
-
     def test_client_addr_with_proxies(
         self,
         app,

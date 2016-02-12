@@ -4,7 +4,7 @@ import sqlalchemy as sa
 from postgresql_audit import jsonb_change_key_name, jsonb_merge
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestJSONBChangeKeyName(object):
     @pytest.mark.parametrize(
         ('data', 'old_key', 'new_key', 'expected'),
@@ -80,7 +80,7 @@ class TestJSONBChangeKeyName(object):
         assert result == expected
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('Activity', 'table_creator')
 class TestJSONBMerge(object):
     @pytest.mark.parametrize(
         ('data', 'merge_data', 'expected'),
