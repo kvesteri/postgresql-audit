@@ -85,7 +85,9 @@ def Article(base, User):
         __versioned__ = {}
         id = sa.Column(sa.Integer, primary_key=True)
         name = sa.Column(sa.String(100))
-        author_id = sa.Column(sa.Integer, sa.ForeignKey(User.id))
+        author_id = sa.Column(
+            sa.Integer, sa.ForeignKey(User.id, ondelete='SET NULL')
+        )
         author = sa.orm.relationship(User)
     return Article
 

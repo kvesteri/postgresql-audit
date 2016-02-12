@@ -388,7 +388,7 @@ class VersioningManager(object):
             expr
         )
 
-    def revert(self, obj, time):
+    def revert(self, obj, time, relationships=None):
         """
         Revert an object's data to given point in time.::
 
@@ -411,20 +411,108 @@ class VersioningManager(object):
             time
         ) if isinstance(time, datetime) else time
 
+        if relationships is not None:
+            for relationship in relationships:
+                getattr(obj, relationship.key)
+
+        data = self.fetch_single_object_data(Activity, obj, activity_id)
+        for key, value in data.items():
+            setattr(obj, key, value)
+
+        session = sa.orm.object_session(obj)
+        original_autoflush_setting = session.autoflush
+        session.autoflush = False
+
+        if relationships is not None:
+            for relationship in relationships:
+                data = self.fetch_single_related_object_data(
+                    Activity,
+                    relationship,
+                    obj,
+                    activity_id
+                )
+
+                if data is None:
+                    setattr(obj, relationship.key, None)
+                else:
+                    primary_keys = get_primary_keys(relationship.mapper)
+                    related_obj = session.query(relationship.mapper).get(
+                        [data[key] for key in primary_keys]
+                    )
+                    if not related_obj:
+                        related_obj = relationship.mapper.class_()
+                        session.add(related_obj)
+                    for key, value in data.items():
+                        setattr(related_obj, key, value)
+
+                    setattr(obj, relationship.key, related_obj)
+
+        session.autoflush = original_autoflush_setting
+
+    def fetch_single_related_object_data(
+        self,
+        activity_cls,
+        relationship,
+        obj,
+        activity_id
+    ):
         query = sa.select(
-            [Activity.data]
+            [activity_cls.data]
         ).where(
             sa.and_(
-                Activity.id == activity_id,
+                activity_cls.id <= activity_id,
+                activity_cls.table_name ==
+                relationship.mapper.class_.__table__.name,
+                ExpressionReflector(
+                    activity_cls
+                )(
+                    PrimaryJoinReflector(obj)(
+                        relationship.property.primaryjoin
+                    )
+                )
+            )
+        ).order_by(activity_cls.id.desc()).limit(1)
+        session = sa.orm.object_session(obj)
+        return session.execute(query).scalar()
+
+    def fetch_single_object_data(
+        self,
+        activity_cls,
+        obj,
+        activity_id
+    ):
+        query = sa.select(
+            [activity_cls.data]
+        ).where(
+            sa.and_(
+                activity_cls.id == activity_id,
                 self.build_condition_for_obj(obj),
-                Activity.verb != 'delete'
+                activity_cls.verb != 'delete'
             )
         )
         session = sa.orm.object_session(obj)
 
-        data = session.execute(query).scalar()
-        for key, value in data.items():
-            setattr(obj, key, value)
+        return session.execute(query).scalar()
+
+
+from sqlalchemy.sql.expression import bindparam
+
+
+class PrimaryJoinReflector(sa.sql.visitors.ReplacingCloningVisitor):
+    def __init__(self, obj):
+        self.obj = obj
+
+    def replace(self, column):
+        if not isinstance(column, sa.Column):
+            return
+        if column.table == self.obj.__class__.__table__:
+            return bindparam(
+                column.key,
+                getattr(self.obj, column.key)
+            )
+
+    def __call__(self, expr):
+        return self.traverse(expr)
 
 
 class Resurrector(object):
