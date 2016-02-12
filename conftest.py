@@ -79,12 +79,14 @@ def User(base):
 
 
 @pytest.fixture()
-def Article(base):
+def Article(base, User):
     class Article(base):
         __tablename__ = 'article'
         __versioned__ = {}
         id = sa.Column(sa.Integer, primary_key=True)
         name = sa.Column(sa.String(100))
+        author_id = sa.Column(sa.Integer, sa.ForeignKey(User.id))
+        author = sa.orm.relationship(User)
     return Article
 
 

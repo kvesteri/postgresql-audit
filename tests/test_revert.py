@@ -55,3 +55,19 @@ class TestRevert(object):
         versioning_manager.revert(user, activity_id)
         session.commit()
         assert user.name == 'Jack'
+
+
+
+@pytest.mark.usefixtures('Activity', 'table_creator')
+class TestRevertOneToOne(object):
+    def test_using_transaction_time(
+        self,
+        User,
+        Article,
+        versioning_manager,
+        session
+    ):
+        article = Article(name='Some article')
+        session.commit()
+        article.author = User(name='Some user')
+        session.commit()
