@@ -27,13 +27,13 @@ class TestActivityCreation(object):
     def test_operation_after_commit(
         self,
         activity_cls,
-        user_class,
+        User,
         session
     ):
-        user = user_class(name='Jack')
+        user = User(name='Jack')
         session.add(user)
         session.commit()
-        user = user_class(name='Jack')
+        user = User(name='Jack')
         session.add(user)
         session.commit()
         assert session.query(activity_cls).count() == 2
@@ -41,25 +41,25 @@ class TestActivityCreation(object):
     def test_operation_after_rollback(
         self,
         activity_cls,
-        user_class,
+        User,
         session
     ):
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.rollback()
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         assert session.query(activity_cls).count() == 1
 
     def test_manager_defaults(
         self,
-        user_class,
+        User,
         session,
         versioning_manager
     ):
         versioning_manager.values = {'actor_id': 1}
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         activity = last_activity(session)
@@ -67,12 +67,12 @@ class TestActivityCreation(object):
 
     def test_callables_as_manager_defaults(
         self,
-        user_class,
+        User,
         session,
         versioning_manager
     ):
         versioning_manager.values = {'actor_id': lambda: 1}
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         activity = last_activity(session)
@@ -80,13 +80,13 @@ class TestActivityCreation(object):
 
     def test_raw_inserts(
         self,
-        user_class,
+        User,
         session,
         versioning_manager
     ):
         versioning_manager.values = {'actor_id': 1}
-        session.execute(user_class.__table__.insert().values(name='John'))
-        session.execute(user_class.__table__.insert().values(name='John'))
+        session.execute(User.__table__.insert().values(name='John'))
+        session.execute(User.__table__.insert().values(name='John'))
         versioning_manager.set_activity_values(session)
         activity = last_activity(session)
 
@@ -97,8 +97,8 @@ class TestActivityCreation(object):
             "<Activity table_name='user' id=3>"
         )
 
-    def test_custom_actor_class(self, user_class):
-        manager = VersioningManager(actor_cls=user_class)
+    def test_custom_actor_class(self, User):
+        manager = VersioningManager(actor_cls=User)
         manager.init(declarative_base())
         sa.orm.configure_mappers()
         assert isinstance(
@@ -142,17 +142,17 @@ class TestActivityCreation(object):
     def test_disable_contextmanager(
         self,
         activity_cls,
-        user_class,
+        User,
         session,
         versioning_manager
     ):
         with versioning_manager.disable(session):
-            user = user_class(name='Jack')
+            user = User(name='Jack')
             session.add(user)
             session.commit()
         assert session.query(activity_cls).count() == 0
 
-        user = user_class(name='Jack')
+        user = User(name='Jack')
         session.add(user)
         session.commit()
         assert session.query(activity_cls).count() == 1
@@ -223,8 +223,8 @@ class TestColumnExclusion(object):
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestActivityObject(object):
-    def test_activity_object(self, session, activity_cls, user_class):
-        user = user_class(name='John')
+    def test_activity_object(self, session, activity_cls, User):
+        user = User(name='John')
         session.add(user)
         session.commit()
         activity = session.query(activity_cls).first()

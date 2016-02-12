@@ -47,10 +47,10 @@ def connection(db, engine):
 
 
 @pytest.fixture
-def app(dns, db, login_manager, user_class, article_class):
+def app(dns, db, login_manager, User, Article):
     @login_manager.user_loader
     def load_user(id):
-        user = db.session.query(user_class).get(id)
+        user = db.session.query(User).get(id)
         return user
 
     application = Flask(__name__)
@@ -63,7 +63,7 @@ def app(dns, db, login_manager, user_class, article_class):
 
     @application.route('/simple-flush')
     def test_simple_flush():
-        article = article_class()
+        article = Article()
         article.name = u'Some article'
         db.session.add(article)
         db.session.commit()
@@ -119,7 +119,7 @@ class TestFlaskIntegration(object):
         db,
         client,
         user,
-        user_class,
+        User,
         versioning_manager
     ):
         login(client, user)
@@ -142,7 +142,7 @@ class TestFlaskIntegration(object):
         db,
         client,
         user,
-        user_class,
+        User,
         versioning_manager
     ):
         login(client, user)
@@ -162,8 +162,8 @@ class TestFlaskIntegration(object):
         db,
         client,
         user,
-        user_class,
-        article_class,
+        User,
+        Article,
         versioning_manager
     ):
         @app.route('/activity-values')
@@ -174,7 +174,7 @@ class TestFlaskIntegration(object):
                 'client_addr': '123.123.123.123'
             }
             with activity_values(**args):
-                article = article_class()
+                article = Article()
                 article.name = u'Some article'
                 db.session.add(article)
                 db.session.commit()

@@ -64,13 +64,13 @@ class TestCustomSchemaActivityCreation(object):
     def test_operation_after_commit(
         self,
         activity_cls,
-        user_class,
+        User,
         session
     ):
-        user = user_class(name='Jack')
+        user = User(name='Jack')
         session.add(user)
         session.commit()
-        user = user_class(name='Jack')
+        user = User(name='Jack')
         session.add(user)
         session.commit()
         assert session.query(activity_cls).count() == 2
@@ -78,26 +78,26 @@ class TestCustomSchemaActivityCreation(object):
     def test_operation_after_rollback(
         self,
         activity_cls,
-        user_class,
+        User,
         session
     ):
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.rollback()
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         assert session.query(activity_cls).count() == 1
 
     def test_manager_defaults(
         self,
-        user_class,
+        User,
         session,
         versioning_manager,
         schema_name
     ):
         versioning_manager.values = {'actor_id': 1}
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         activity = last_activity(session, schema=schema_name)
@@ -105,13 +105,13 @@ class TestCustomSchemaActivityCreation(object):
 
     def test_callables_as_manager_defaults(
         self,
-        user_class,
+        User,
         session,
         versioning_manager,
         schema_name
     ):
         versioning_manager.values = {'actor_id': lambda: 1}
-        user = user_class(name='John')
+        user = User(name='John')
         session.add(user)
         session.commit()
         activity = last_activity(session, schema=schema_name)
@@ -119,14 +119,14 @@ class TestCustomSchemaActivityCreation(object):
 
     def test_raw_inserts(
         self,
-        user_class,
+        User,
         session,
         versioning_manager,
         schema_name
     ):
         versioning_manager.values = {'actor_id': 1}
-        session.execute(user_class.__table__.insert().values(name='John'))
-        session.execute(user_class.__table__.insert().values(name='John'))
+        session.execute(User.__table__.insert().values(name='John'))
+        session.execute(User.__table__.insert().values(name='John'))
         versioning_manager.set_activity_values(session)
         activity = last_activity(session, schema=schema_name)
 
@@ -137,9 +137,9 @@ class TestCustomSchemaActivityCreation(object):
             "<Activity table_name='user' id=3>"
         )
 
-    def test_custom_actor_class(self, user_class, schema_name):
+    def test_custom_actor_class(self, User, schema_name):
         manager = VersioningManager(
-            actor_cls=user_class,
+            actor_cls=User,
             schema_name=schema_name
         )
         manager.init(declarative_base())

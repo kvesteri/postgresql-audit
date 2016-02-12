@@ -16,9 +16,9 @@ class TestExpressionReflector(object):
     def test_binary_expression_reflected_column_and_scalar(
         self,
         reflector,
-        user_class,
+        User,
     ):
-        compiled = reflector(user_class.id == 3).compile(
+        compiled = reflector(User.id == 3).compile(
             dialect=postgresql.dialect()
         )
         assert str(compiled) == (
@@ -30,9 +30,9 @@ class TestExpressionReflector(object):
     def test_binary_expression_with_two_reflected_columns(
         self,
         reflector,
-        user_class,
+        User,
     ):
-        compiled = reflector(user_class.id == user_class.id).compile(
+        compiled = reflector(User.id == User.id).compile(
             dialect=postgresql.dialect()
         )
         assert str(compiled) == (
@@ -45,12 +45,12 @@ class TestExpressionReflector(object):
     def test_boolean_clause_list(
         self,
         reflector,
-        user_class,
+        User,
         activity_cls
     ):
         compiled = reflector(
             sa.and_(
-                user_class.id == 3,
+                User.id == 3,
                 activity_cls.issued_at > datetime(2011, 1, 1)
             )
         ).compile(
@@ -68,9 +68,9 @@ class TestExpressionReflector(object):
     def test_unary_expression_reflection(
         self,
         reflector,
-        user_class,
+        User,
     ):
-        compiled = reflector(~ user_class.id).compile(
+        compiled = reflector(~ User.id).compile(
             dialect=postgresql.dialect()
         )
         assert str(compiled) == (

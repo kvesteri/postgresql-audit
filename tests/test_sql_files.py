@@ -90,16 +90,16 @@ class TestActivityCreation(object):
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
 class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
-    def audit_trigger_creator(self, session, user_class):
+    def audit_trigger_creator(self, session, User):
         session.execute(
             '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
-                user_class.__tablename__
+                User.__tablename__
             )
         )
 
     @pytest.fixture
-    def user(self, session, user_class, audit_trigger_creator):
-        user = user_class(name='John', age=15)
+    def user(self, session, User, audit_trigger_creator):
+        user = User(name='John', age=15)
         session.add(user)
         session.flush()
         return user

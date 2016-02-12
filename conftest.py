@@ -68,7 +68,7 @@ def activity_cls(versioning_manager):
 
 
 @pytest.fixture()
-def user_class(base):
+def User(base):
     class User(base):
         __tablename__ = 'user'
         __versioned__ = {}
@@ -79,7 +79,7 @@ def user_class(base):
 
 
 @pytest.fixture()
-def article_class(base):
+def Article(base):
     class Article(base):
         __tablename__ = 'article'
         __versioned__ = {}
@@ -89,8 +89,8 @@ def article_class(base):
 
 
 @pytest.fixture()
-def models(user_class, article_class):
-    return [user_class, article_class]
+def models(User, Article):
+    return [User, Article]
 
 
 @pytest.yield_fixture
@@ -107,16 +107,16 @@ def table_creator(base, versioning_manager, connection, session, models,
 
 
 @pytest.fixture
-def article(session, article_class):
-    article = article_class(name='Some article')
+def article(session, Article):
+    article = Article(name='Some article')
     session.add(article)
     session.commit()
     return article
 
 
 @pytest.fixture
-def user(session, user_class):
-    user = user_class(name='John', age=15)
+def user(session, User):
+    user = User(name='John', age=15)
     session.add(user)
     session.commit()
     return user

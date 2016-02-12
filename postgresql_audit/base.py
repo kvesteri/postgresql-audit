@@ -2,7 +2,7 @@ import os
 import string
 import warnings
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from weakref import WeakSet
 
 import sqlalchemy as sa
@@ -330,76 +330,86 @@ class VersioningManager(object):
             )
         )
 
-    def get_last_transaction_id_query(self, obj, time=None):
+    def get_last_activity_id(self, obj, time=None):
+        session = sa.orm.object_session(obj)
+        return session.execute(
+            self.get_last_activity_id_query(obj, time=time)
+        ).scalar()
+
+    def get_last_activity_id_query(self, obj, time=None):
         condition = self.build_condition_for_obj(obj)
         if time:
             condition = sa.and_(condition, self.activity_cls.issued_at < time)
         return sa.select(
-            [sa.func.max(self.activity_cls.transaction_id)]
+            [sa.func.max(self.activity_cls.id)]
         ).where(condition)
 
-    def resurrect(self, session, model, expr):
+    def resurrect_all(self, session, model, expr):
         """
 
-        Resurrects objects for given session and given expression.
+        Resurrects objects for given session and given expression. Returns all
+        resurrected objects.::
 
-        ::
 
-
-            versioning_manager.resurrect(
+            users = versioning_manager.resurrect(
                 session,
                 User,
                 User.id == 3
             )
 
-        This method uses the greatest-n-per-group algorithm, for more info
-        see: http://stackoverflow.com/questions/7745609
-        """
-        reflected = ExpressionReflector(self.activity_cls)(expr)
-        alias = sa.orm.aliased(self.activity_cls)
-        query = sa.select([self.activity_cls.data]).select_from(
-            self.activity_cls.__table__.outerjoin(
-                alias,
+
+            users = versioning_manager.resurrect(
+                session,
+                User,
                 sa.and_(
-                    self.activity_cls.table_name == alias.table_name,
-                    sa.and_(
-                        self.activity_cls.data[c.name] == alias.data[c.name]
-                        for c in get_primary_keys(model).values()
-                    ),
-                    self.activity_cls.issued_at < alias.issued_at
+                    User.age > 88,
+                    User.first_name.ilike('John%')
                 )
             )
-        ).where(
-            sa.and_(
-                alias.id.is_(None),
-                reflected,
-                self.activity_cls.verb == 'delete'
-            )
+
+
+        This method uses the greatest-n-per-group algorithm, for more info
+        see: http://stackoverflow.com/questions/7745609
+
+        .. versionadded: 0.7
+        """
+        return Resurrector().resurrect_all(
+            self.activity_cls,
+            session,
+            model,
+            expr
         )
-        data = session.execute(query).fetchall()
-        for row in data:
-            session.add(model(**row[0]))
 
     def revert(self, obj, time):
         """
-        Revert an object's data to given point in time.
-
-        ::
+        Revert an object's data to given point in time.::
 
 
             versioning_manager.revert(user, datetime(2011, 1, 1))
+
+
+        You can also pass ``Activity.id`` as the second parameter.::
+
+
+            versioning_manager.revert(user, 207781901)
+
+
+        .. versionadded: 0.7
         """
 
         Activity = self.activity_cls
+        activity_id = self.get_last_activity_id_query(
+            obj,
+            time
+        ) if isinstance(time, datetime) else time
+
         query = sa.select(
             [Activity.data]
         ).where(
             sa.and_(
-                Activity.transaction_id == self.get_last_transaction_id_query(
-                    obj,
-                    time
-                ),
-                self.build_condition_for_obj(obj)
+                Activity.id == activity_id,
+                self.build_condition_for_obj(obj),
+                Activity.verb != 'delete'
             )
         )
         session = sa.orm.object_session(obj)
@@ -407,6 +417,42 @@ class VersioningManager(object):
         data = session.execute(query).scalar()
         for key, value in data.items():
             setattr(obj, key, value)
+
+
+class Resurrector(object):
+    def resurrect_all_query(self, activity_cls, session, model, expr):
+        reflected = ExpressionReflector(activity_cls)(expr)
+        alias = sa.orm.aliased(activity_cls)
+        return sa.select([activity_cls.data]).select_from(
+            activity_cls.__table__.outerjoin(
+                alias,
+                sa.and_(
+                    activity_cls.table_name == alias.table_name,
+                    sa.and_(
+                        activity_cls.data[c.name] == alias.data[c.name]
+                        for c in get_primary_keys(model).values()
+                    ),
+                    activity_cls.issued_at < alias.issued_at
+                )
+            )
+        ).where(
+            sa.and_(
+                alias.id.is_(None),
+                reflected,
+                activity_cls.verb == 'delete'
+            )
+        )
+
+    def resurrect_all(self, activity_cls, session, model, expr):
+        data = session.execute(
+            self.resurrect_all_query(activity_cls, session, model, expr)
+        ).fetchall()
+        created_objects = []
+        for row in data:
+            obj = model(**row[0])
+            session.add(obj)
+            created_objects.append(obj)
+        return created_objects
 
 
 versioning_manager = VersioningManager()
