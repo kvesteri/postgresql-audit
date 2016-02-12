@@ -1,6 +1,8 @@
 PostgreSQL-Audit
 ================
 
+|Build Status| |Version Status| |Downloads|
+
 Auditing extension for PostgreSQL. Provides additional extensions for SQLAlchemy and Flask. PostgreSQL-Audit tries to combine the best of breed from existing solutions such as SQLAlchemy-Continuum_, Papertrail_ and especially `Audit Trigger by 2nd Quadrant`_.
 
 Compared to existing solutions PostgreSQL-Audit has the following charasteristics:
@@ -106,3 +108,12 @@ Now we can check the newly created activity.
     activity.object_id      # 1
     activity.old_data       # {'id': '1', 'name': 'Some other article'}
     activity.changed_data   # None
+
+
+
+.. |Build Status| image:: https://travis-ci.org/kvesteri/postgresql-audit.png?branch=master
+   :target: https://travis-ci.org/kvesteri/postgresql-audit
+.. |Version Status| image:: https://img.shields.io/pypi/v/PostgreSQL-Audit.svg
+   :target: https://pypi.python.org/pypi/PostgreSQL-Audit/
+.. |Downloads| image:: https://img.shields.io/pypi/dm/PostgreSQL-Audit.svg
+   :target: https://pypi.python.org/pypi/PostgreSQL-Audit/
