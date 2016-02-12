@@ -344,10 +344,18 @@ class VersioningManager(object):
             [sa.func.max(self.activity_cls.id)]
         ).where(condition)
 
+    def resurrect(self, session, model, id):
+        """
+        Resurrect an instance of given model and id using given session.
+
+        .. versionadded: 0.7
+        """
+        return Resurrector().resurrect(self.activity_cls, session, model, id)
+
     def resurrect_all(self, session, model, expr):
         """
 
-        Resurrects objects for given session and given expression. Returns all
+        Resurrect objects for given session and given expression. Returns all
         resurrected objects.::
 
 
@@ -420,6 +428,40 @@ class VersioningManager(object):
 
 
 class Resurrector(object):
+    def resurrect(self, activity_cls, session, model, id):
+        data = session.execute(
+            self.resurrect_query(activity_cls, session, model, id)
+        ).scalar()
+        obj = model(**data)
+        session.add(obj)
+        return obj
+
+    def resurrect_all(self, activity_cls, session, model, expr):
+        data = session.execute(
+            self.resurrect_all_query(activity_cls, session, model, expr)
+        ).fetchall()
+        created_objects = []
+        for row in data:
+            obj = model(**row[0])
+            session.add(obj)
+            created_objects.append(obj)
+        return created_objects
+
+    def resurrect_query(self, activity_cls, session, model, id):
+        if not isinstance(id, (list, tuple)):
+            id = [id]
+        return sa.select([activity_cls.data]).where(
+            sa.and_(
+                activity_cls.table_name == model.__tablename__,
+                *(
+                    activity_cls.data[column.name].astext ==
+                    str(id[index])
+                    for index, column
+                    in enumerate(get_primary_keys(model).values())
+                )
+            )
+        ).order_by(sa.desc(activity_cls.id)).limit(1)
+
     def resurrect_all_query(self, activity_cls, session, model, expr):
         reflected = ExpressionReflector(activity_cls)(expr)
         alias = sa.orm.aliased(activity_cls)
@@ -442,17 +484,6 @@ class Resurrector(object):
                 activity_cls.verb == 'delete'
             )
         )
-
-    def resurrect_all(self, activity_cls, session, model, expr):
-        data = session.execute(
-            self.resurrect_all_query(activity_cls, session, model, expr)
-        ).fetchall()
-        created_objects = []
-        for row in data:
-            obj = model(**row[0])
-            session.add(obj)
-            created_objects.append(obj)
-        return created_objects
 
 
 versioning_manager = VersioningManager()
