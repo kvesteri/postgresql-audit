@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import expression
 from sqlalchemy.sql.elements import BindParameter
+from sqlalchemy.sql.expression import bindparam
 
 
 class jsonb_merge(expression.FunctionElement):
@@ -97,6 +98,23 @@ class ExpressionReflector(sa.sql.visitors.ReplacingCloningVisitor):
         ):
             return
         return self.Activity.data[sa.text("'{0}'".format(expr.name))].astext
+
+    def __call__(self, expr):
+        return self.traverse(expr)
+
+
+class ObjectReflector(sa.sql.visitors.ReplacingCloningVisitor):
+    def __init__(self, obj):
+        self.obj = obj
+
+    def replace(self, column):
+        if not isinstance(column, sa.Column):
+            return
+        if column.table == self.obj.__class__.__table__:
+            return bindparam(
+                column.key,
+                getattr(self.obj, column.key)
+            )
 
     def __call__(self, expr):
         return self.traverse(expr)

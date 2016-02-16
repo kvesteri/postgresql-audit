@@ -12,7 +12,8 @@ from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table, get_primary_keys
 
-from .expressions import ExpressionReflector, jsonb_merge
+from .expressions import ExpressionReflector, jsonb_merge, ObjectReflector
+from .resurrect import Resurrector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
@@ -339,7 +340,7 @@ class VersioningManager(object):
     def get_last_activity_id_query(self, obj, time=None):
         condition = self.build_condition_for_obj(obj)
         if time:
-            condition = sa.and_(condition, self.activity_cls.issued_at < time)
+           condition = sa.and_(condition, self.activity_cls.issued_at < time)
         return sa.select(
             [sa.func.max(self.activity_cls.id)]
         ).where(condition)
@@ -418,7 +419,20 @@ class VersioningManager(object):
         data = self.fetch_single_object_data(Activity, obj, activity_id)
         for key, value in data.items():
             setattr(obj, key, value)
+        self.revert_relationships(
+            Activity,
+            activity_id,
+            obj,
+            relationships
+        )
 
+    def revert_relationships(
+        self,
+        activity_cls,
+        activity_id,
+        obj,
+        relationships
+    ):
         session = sa.orm.object_session(obj)
         original_autoflush_setting = session.autoflush
         session.autoflush = False
@@ -426,7 +440,7 @@ class VersioningManager(object):
         if relationships is not None:
             for relationship in relationships:
                 data = self.fetch_single_related_object_data(
-                    Activity,
+                    activity_cls,
                     relationship,
                     obj,
                     activity_id
@@ -465,11 +479,7 @@ class VersioningManager(object):
                 relationship.mapper.class_.__table__.name,
                 ExpressionReflector(
                     activity_cls
-                )(
-                    PrimaryJoinReflector(obj)(
-                        relationship.property.primaryjoin
-                    )
-                )
+                )(ObjectReflector(obj)(relationship.property.primaryjoin))
             )
         ).order_by(activity_cls.id.desc()).limit(1)
         session = sa.orm.object_session(obj)
@@ -493,88 +503,6 @@ class VersioningManager(object):
         session = sa.orm.object_session(obj)
 
         return session.execute(query).scalar()
-
-
-from sqlalchemy.sql.expression import bindparam
-
-
-class PrimaryJoinReflector(sa.sql.visitors.ReplacingCloningVisitor):
-    def __init__(self, obj):
-        self.obj = obj
-
-    def replace(self, column):
-        if not isinstance(column, sa.Column):
-            return
-        if column.table == self.obj.__class__.__table__:
-            return bindparam(
-                column.key,
-                getattr(self.obj, column.key)
-            )
-
-    def __call__(self, expr):
-        return self.traverse(expr)
-
-
-class Resurrector(object):
-    def resurrect(self, activity_cls, session, model, id):
-        data = session.execute(
-            self.resurrect_query(activity_cls, session, model, id)
-        ).scalar()
-        if data is None:
-            return None
-        obj = model(**data)
-        session.add(obj)
-        return obj
-
-    def resurrect_all(self, activity_cls, session, model, expr):
-        data = session.execute(
-            self.resurrect_all_query(activity_cls, session, model, expr)
-        ).fetchall()
-        created_objects = []
-        for row in data:
-            obj = model(**row[0])
-            session.add(obj)
-            created_objects.append(obj)
-        return created_objects
-
-    def resurrect_query(self, activity_cls, session, model, id):
-        if not isinstance(id, (list, tuple)):
-            id = [id]
-        return sa.select([activity_cls.data]).where(
-            sa.and_(
-                activity_cls.table_name == model.__tablename__,
-                activity_cls.verb == 'delete',
-                *(
-                    activity_cls.data[column.name].astext ==
-                    str(id[index])
-                    for index, column
-                    in enumerate(get_primary_keys(model).values())
-                )
-            )
-        ).order_by(sa.desc(activity_cls.id)).limit(1)
-
-    def resurrect_all_query(self, activity_cls, session, model, expr):
-        reflected = ExpressionReflector(activity_cls)(expr)
-        alias = sa.orm.aliased(activity_cls)
-        return sa.select([activity_cls.data]).select_from(
-            activity_cls.__table__.outerjoin(
-                alias,
-                sa.and_(
-                    activity_cls.table_name == alias.table_name,
-                    sa.and_(
-                        activity_cls.data[c.name] == alias.data[c.name]
-                        for c in get_primary_keys(model).values()
-                    ),
-                    activity_cls.issued_at < alias.issued_at
-                )
-            )
-        ).where(
-            sa.and_(
-                alias.id.is_(None),
-                reflected,
-                activity_cls.verb == 'delete'
-            )
-        )
 
 
 versioning_manager = VersioningManager()
