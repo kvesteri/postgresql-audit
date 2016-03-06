@@ -137,8 +137,7 @@ class VersioningManager(object):
             ),
         )
         self.schema_name = schema_name
-        self.table_listener_mapping = self.get_table_listener_mapping()
-        self.table_listeners = list(self.table_listener_mapping.items())
+        self.table_listeners = self.get_table_listeners()
         self.pending_classes = WeakSet()
         self.cached_ddls = {}
 
@@ -174,23 +173,33 @@ class VersioningManager(object):
 
         return tmpl.substitute(**context)
 
-    def get_table_listener_mapping(self):
-        mapping = {
-            'after_create': sa.schema.DDL(
+    def create_operators(self, target, bind, **kwargs):
+        if bind.dialect.server_version_info < (9, 5, 0):
+            StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
+                target, bind, **kwargs
+            )
+        StatementExecutor(self.render_tmpl('operators.sql'))(
+            target, bind, **kwargs
+        )
+
+    def get_table_listeners(self):
+        listeners = [
+            ('after_create', sa.schema.DDL(
                 self.render_tmpl('create_activity.sql') +
                 self.render_tmpl('audit_table_func.sql')
-            ),
-        }
+            )),
+            ('after_create', self.create_operators)
+        ]
         if self.schema_name is not None:
-            mapping.update({
-                'before_create': sa.schema.DDL(
+            listeners.extend([
+                ('before_create', sa.schema.DDL(
                     self.render_tmpl('create_schema.sql')
-                ),
-                'after_drop': sa.schema.DDL(
+                )),
+                ('after_drop', sa.schema.DDL(
                     self.render_tmpl('drop_schema.sql')
-                ),
-            })
-        return mapping
+                )),
+            ])
+        return listeners
 
     def audit_table(self, table, exclude_columns=None):
         args = [table.name]

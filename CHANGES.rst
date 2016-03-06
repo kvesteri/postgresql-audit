@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.7.0 (2016-xx-xx)
+^^^^^^^^^^^^^^^^^^
+
+- Added support for PostgreSQL 9.5. Certain JSONB subtraction operators are only created if used PostgreSQL version is below 9.5.
+
+
 0.6.0 (2016-01-13)
 ^^^^^^^^^^^^^^^^^^
 
