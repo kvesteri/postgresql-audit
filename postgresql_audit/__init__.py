@@ -10,7 +10,8 @@ from .migrations import (  # noqa
     add_column,
     alter_column,
     change_column_name,
-    remove_column
+    remove_column,
+    rename_table
 )
 
-__version__ = '0.6.0'
+__version__ = '0.7.0'

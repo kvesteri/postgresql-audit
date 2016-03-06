@@ -5,10 +5,33 @@ from postgresql_audit import (
     add_column,
     alter_column,
     change_column_name,
-    remove_column
+    remove_column,
+    rename_table
 )
 
 from .utils import last_activity
+
+
+@pytest.mark.usefixtures('activity_cls', 'table_creator')
+class TestRenameTable(object):
+    def test_only_updates_given_table(
+        self,
+        session,
+        article,
+        user,
+        connection,
+        versioning_manager
+    ):
+        rename_table(connection, 'user', 'user2')
+        activity = session.query(versioning_manager.activity_cls).filter_by(
+            table_name='article'
+        ).one()
+        assert activity
+
+    def test_updates_table_name(self, session, user, connection):
+        rename_table(connection, 'user', 'user2')
+        activity = last_activity(connection)
+        assert activity['table_name'] == 'user2'
 
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')

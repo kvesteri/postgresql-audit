@@ -93,8 +93,13 @@ def alter_column(conn, table, column_name, func, schema=None):
     return conn.execute(query)
 
 
-def change_column_name(conn, table, old_column_name, new_column_name,
-                       schema=None):
+def change_column_name(
+    conn,
+    table,
+    old_column_name,
+    new_column_name,
+    schema=None
+):
     """
     Changes given `activity` jsonb data column key. This function is useful
     when you want to reflect column name changes to activity table.
@@ -258,5 +263,41 @@ def remove_column(conn, table, column_name, schema=None):
             changed_data=activity_table.c.changed_data - remove,
         )
         .where(activity_table.c.table_name == table)
+    )
+    return conn.execute(query)
+
+
+def rename_table(conn, old_table_name, new_table_name, schema=None):
+    """
+    Renames given table in activity table. You should remember to call this
+    function whenever you rename a versioned table.
+
+    ::
+
+        from alembic import op
+        from postgresql_audit import rename_table
+
+
+        def upgrade():
+            op.rename_table('article', 'article_v2')
+            rename_table(op, 'article', 'article_v2')
+
+
+    :param conn:
+        An object that is able to execute SQL (either SQLAlchemy Connection,
+        Engine or Alembic Operations object)
+    :param old_table_name:
+        The name of table to rename
+    :param new_table_name:
+        New name of the renamed table
+    :param schema:
+        Optional name of schema to use.
+    """
+    activity_table = get_activity_table(schema=schema)
+    query = (
+        activity_table
+        .update()
+        .values(table_name=new_table_name)
+        .where(activity_table.c.table_name == old_table_name)
     )
     return conn.execute(query)
