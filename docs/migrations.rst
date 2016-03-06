@@ -35,3 +35,9 @@ Adding columns
 .. autoclass:: jsonb_merge
 
 .. autoclass:: jsonb_change_key_name
+
+
+Rename table
+------------
+
+.. autofunction:: rename_table
