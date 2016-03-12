@@ -103,6 +103,23 @@ class ExpressionReflector(sa.sql.visitors.ReplacingCloningVisitor):
         return self.traverse(expr)
 
 
+class ActivityReflector(sa.sql.visitors.ReplacingCloningVisitor):
+    def __init__(self, activity):
+        self.activity = activity
+
+    def replace(self, column):
+        if not isinstance(column, sa.Column):
+            return
+        if column.table.name == self.activity.table_name:
+            return bindparam(
+                column.key,
+                self.activity.data[column.key]
+            )
+
+    def __call__(self, expr):
+        return self.traverse(expr)
+
+
 class ObjectReflector(sa.sql.visitors.ReplacingCloningVisitor):
     def __init__(self, obj):
         self.obj = obj

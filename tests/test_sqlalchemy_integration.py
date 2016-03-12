@@ -223,10 +223,32 @@ class TestColumnExclusion(object):
 
 @pytest.mark.usefixtures('Activity', 'table_creator')
 class TestActivityObject(object):
-    def test_activity_object(self, session, Activity, User):
-        user = User(name='John')
-        session.add(user)
-        session.commit()
+    def test_object_property(self, session, Activity, user):
         activity = session.query(Activity).first()
         assert activity.object.__class__ == user.__class__
         assert activity.object.id == user.id
+
+
+@pytest.mark.usefixtures('Activity', 'table_creator')
+class TestActivityDataProperty(object):
+    def test_for_insert_activity(self, session, Activity, user):
+        assert session.query(Activity.data).scalar()['name'] == 'John'
+
+    def test_for_update_activity(self, session, Activity, user):
+        user.name = 'Jack'
+        session.commit()
+        assert (
+            session.query(Activity.data)
+            .order_by(Activity.transaction_id.desc()).limit(1)
+            .scalar()['name']
+        ) == 'Jack'
+
+
+    def test_for_delete_activity(self, session, Activity, user):
+        session.delete(user)
+        session.commit()
+        assert (
+            session.query(Activity.data)
+            .order_by(Activity.transaction_id.desc()).limit(1)
+            .scalar()['name']
+        ) == 'John'

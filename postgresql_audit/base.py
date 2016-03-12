@@ -12,7 +12,12 @@ from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table, get_primary_keys
 
-from .expressions import ExpressionReflector, jsonb_merge, ObjectReflector
+from .expressions import (
+    ActivityReflector,
+    ExpressionReflector,
+    jsonb_merge,
+    ObjectReflector
+)
 from .resurrect import Resurrector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +65,44 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
+class RelationshipFetcher(object):
+    def __init__(self, parent_activity):
+        self.parent_activity = parent_activity
+        self.mapper = sa.inspect(self.parent_activity.model_cls)
+
+    def one_to_one_query(self, relationship):
+        session = sa.orm.object_session(self.parent_activity)
+        Activity = self.parent_activity.__class__
+        return session.query(
+            Activity
+        ).filter(
+            Activity.table_name == relationship.mapper.tables[0].name,
+            Activity.transaction_id <= self.parent_activity.transaction_id,
+            ExpressionReflector(
+                Activity
+            )(ActivityReflector(self.parent_activity)(
+                relationship.primaryjoin)
+            )
+        ).order_by(Activity.transaction_id.desc()).limit(1)
+
+    def __getattr__(self, attr):
+        session = sa.orm.object_session(self.parent_activity)
+        relationship = self.mapper.relationships[attr]
+        Activity = self.parent_activity.__class__
+        if not relationship.uselist:
+            query = self.one_to_one_query(relationship)
+            obj = query.first()
+            if obj is None or obj.verb == 'delete':
+                return None
+            return obj
+        return session.query(
+            Activity
+        ).filter(
+            Activity.table_name == relationship.mapper.tables[0].name,
+            Activity.transaction_id <= self.parent_activity.transaction_id
+        ).all()
+
+
 def activity_base(base, schema=None):
     class ActivityBase(base):
         __abstract__ = True
@@ -88,10 +131,22 @@ def activity_base(base, schema=None):
             return jsonb_merge(cls.old_data, cls.changed_data)
 
         @property
-        def object(self):
+        def model_cls(self):
             table = base.metadata.tables[self.table_name]
-            cls = get_class_by_table(base, table, self.data)
-            return cls(**self.data)
+            return get_class_by_table(base, table, self.data)
+
+        @property
+        def object(self):
+            return self.model_cls(**self.data)
+
+        @property
+        def relationships(self):
+            """
+            Book.Author
+
+            activity.relationships.author
+            """
+            return RelationshipFetcher(self)
 
         def __repr__(self):
             return (
@@ -443,34 +498,30 @@ class VersioningManager(object):
         relationships
     ):
         session = sa.orm.object_session(obj)
-        original_autoflush_setting = session.autoflush
-        session.autoflush = False
-
-        if relationships is not None:
-            for relationship in relationships:
-                data = self.fetch_single_related_object_data(
-                    activity_cls,
-                    relationship,
-                    obj,
-                    activity_id
-                )
-
-                if data is None:
-                    setattr(obj, relationship.key, None)
-                else:
-                    primary_keys = get_primary_keys(relationship.mapper)
-                    related_obj = session.query(relationship.mapper).get(
-                        [data[key] for key in primary_keys]
+        with session.no_autoflush:
+            if relationships is not None:
+                for relationship in relationships:
+                    data = self.fetch_single_related_object_data(
+                        activity_cls,
+                        relationship,
+                        obj,
+                        activity_id
                     )
-                    if not related_obj:
-                        related_obj = relationship.mapper.class_()
-                        session.add(related_obj)
-                    for key, value in data.items():
-                        setattr(related_obj, key, value)
 
-                    setattr(obj, relationship.key, related_obj)
+                    if data is None:
+                        setattr(obj, relationship.key, None)
+                    else:
+                        primary_keys = get_primary_keys(relationship.mapper)
+                        related_obj = session.query(relationship.mapper).get(
+                            [data[key] for key in primary_keys]
+                        )
+                        if not related_obj:
+                            related_obj = relationship.mapper.class_()
+                            session.add(related_obj)
+                        for key, value in data.items():
+                            setattr(related_obj, key, value)
 
-        session.autoflush = original_autoflush_setting
+                        setattr(obj, relationship.key, related_obj)
 
     def fetch_single_related_object_data(
         self,

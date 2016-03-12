@@ -88,7 +88,7 @@ def Article(base, User):
         author_id = sa.Column(
             sa.Integer, sa.ForeignKey(User.id, ondelete='SET NULL')
         )
-        author = sa.orm.relationship(User)
+        author = sa.orm.relationship(User, backref='articles')
     return Article
 
 
