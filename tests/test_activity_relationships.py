@@ -2,7 +2,6 @@
 import pytest
 
 
-
 @pytest.mark.usefixtures('Activity', 'table_creator')
 class TestOneToMany(object):
     def test_existing_objects(
@@ -21,13 +20,73 @@ class TestOneToMany(object):
         session.commit()
         activity = (
             session.query(Activity)
-            .filter_by(table_name='user').first()
+            .filter_by(table_name='user')
+            .order_by(Activity.id.desc()).first()
         )
         article_activities = activity.relationships.articles
+        assert len(article_activities) == 2
         assert article_activities[0].table_name == 'article'
         assert article_activities[0].data['name'] == 'Article 1'
         assert article_activities[1].table_name == 'article'
         assert article_activities[1].data['name'] == 'Article 2'
+
+    def test_delete_related_object(
+        self,
+        User,
+        Article,
+        Activity,
+        versioning_manager,
+        session
+    ):
+        user = User(name='Jack')
+        articles = [
+            Article(name='Article 1', author=user),
+            Article(name='Article 2', author=user)
+        ]
+        session.add_all(articles)
+        session.commit()
+        session.delete(articles[0])
+        session.commit()
+        user.name = 'John'
+        session.commit()
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='user')
+            .order_by(Activity.id.desc()).first()
+        )
+        article_activities = activity.relationships.articles
+        assert len(article_activities) == 1
+        assert article_activities[0].table_name == 'article'
+        assert article_activities[0].data['name'] == 'Article 2'
+
+    def test_nullify_relationship(
+        self,
+        User,
+        Article,
+        Activity,
+        versioning_manager,
+        session
+    ):
+        user = User(name='Jack')
+        articles = [
+            Article(name='Article 1', author=user),
+            Article(name='Article 2', author=user)
+        ]
+        session.add_all(articles)
+        session.commit()
+        articles[0].author = None
+        session.commit()
+        user.name = 'John'
+        session.commit()
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='user')
+            .order_by(Activity.id.desc()).first()
+        )
+        article_activities = activity.relationships.articles
+        assert len(article_activities) == 1
+        assert article_activities[0].table_name == 'article'
+        assert article_activities[0].data['name'] == 'Article 2'
 
 
 @pytest.mark.usefixtures('Activity', 'table_creator')
@@ -74,13 +133,32 @@ class TestOneToOne(object):
         activity = (
             session.query(Activity)
             .filter_by(table_name='article')
-            .order_by(Activity.transaction_id.desc())
+            .order_by(Activity.id.desc())
             .first()
         )
         user_activity = activity.relationships.author
         assert user_activity is None
 
-    def test_adhers_to_relationship_condition(
+    def test_nullify_relationship(
+        self,
+        article,
+        Activity,
+        user,
+        versioning_manager,
+        session
+    ):
+        article.author_id = None
+        session.commit()
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='article')
+            .order_by(Activity.id.desc())
+            .first()
+        )
+        user_activity = activity.relationships.author
+        assert user_activity is None
+
+    def test_adheres_to_relationship_condition(
         self,
         user,
         article,
@@ -95,7 +173,7 @@ class TestOneToOne(object):
         activity = (
             session.query(Activity)
             .filter_by(table_name='article')
-            .order_by(Activity.transaction_id.desc())
+            .order_by(Activity.id.desc())
             .first()
         )
         user_activity = activity.relationships.author
@@ -115,8 +193,60 @@ class TestOneToOne(object):
         activity = (
             session.query(Activity)
             .filter_by(table_name='article')
-            .order_by(Activity.transaction_id.desc())
+            .order_by(Activity.id.desc())
             .first()
         )
         user_activity = activity.relationships.author
         assert user_activity.data['name'] == 'John'
+
+
+@pytest.mark.usefixtures('Activity', 'table_creator')
+class TestManyToMany(object):
+    @pytest.fixture
+    def tags(self, Tag, session):
+        tags = [
+            Tag(name='Tag 1'),
+            Tag(name='Tag 2'),
+            Tag(name='Tag 3')
+        ]
+        return tags
+
+    @pytest.fixture
+    def articles(self, Article, tags, session):
+        articles = [
+            Article(name='Article 1', tags=[tags[0]]),
+            Article(name='Article 2', tags=tags[1:]),
+            Article(name='Article 3', tags=tags[0:1]),
+        ]
+        session.add_all(articles)
+        session.commit()
+        return articles
+
+    @pytest.mark.parametrize(
+        ('article_number', 'expected_tag_count'),
+        (
+            (0, 1),
+            (1, 2),
+            (2, 1)
+        )
+    )
+    def test_existing_objects(
+        self,
+        articles,
+        Activity,
+        versioning_manager,
+        session,
+        article_number,
+        expected_tag_count
+    ):
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='article')
+            .filter(
+                Activity.data['id'] ==
+                str(articles[article_number].id)
+            ).first()
+        )
+        tag_activities = activity.relationships.tags
+        assert len(tag_activities) == expected_tag_count
+        assert tag_activities[0].table_name == 'tag'

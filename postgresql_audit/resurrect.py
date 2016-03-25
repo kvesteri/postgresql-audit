@@ -19,12 +19,9 @@ class Resurrector(object):
         data = session.execute(
             self.resurrect_all_query(activity_cls, session, model, expr)
         ).fetchall()
-        created_objects = []
-        for row in data:
-            obj = model(**row[0])
-            session.add(obj)
-            created_objects.append(obj)
-        return created_objects
+        objects = [model(**row[0]) for row in data]
+        session.add_all(objects)
+        return objects
 
     def resurrect_query(self, activity_cls, session, model, id):
         if not isinstance(id, (list, tuple)):

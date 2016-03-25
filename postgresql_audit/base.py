@@ -85,22 +85,128 @@ class RelationshipFetcher(object):
             )
         ).order_by(Activity.transaction_id.desc()).limit(1)
 
-    def __getattr__(self, attr):
+    def one_to_many_query(self, relationship):
         session = sa.orm.object_session(self.parent_activity)
-        relationship = self.mapper.relationships[attr]
         Activity = self.parent_activity.__class__
-        if not relationship.uselist:
-            query = self.one_to_one_query(relationship)
-            obj = query.first()
-            if obj is None or obj.verb == 'delete':
-                return None
-            return obj
+        primaryjoin = ExpressionReflector(
+            Activity
+        )(ActivityReflector(self.parent_activity)(
+            relationship.primaryjoin
+        ))
+
+        subquery = sa.select([
+            Activity.data['id']
+        ]).where(
+            sa.and_(
+                Activity.table_name == relationship.mapper.tables[0].name,
+                Activity.transaction_id <= self.parent_activity.transaction_id,
+                primaryjoin
+            )
+        ).alias('subquery')
+
+        max_activity_ids_by_record = sa.select([
+            Activity.data['id'],
+            sa.func.max(Activity.id).label('id')
+        ]).where(
+            sa.and_(
+                Activity.data['id'].in_(subquery),
+                Activity.table_name == relationship.mapper.tables[0].name,
+                Activity.transaction_id <= self.parent_activity.transaction_id,
+            )
+        ).group_by(Activity.data['id']).alias('grouped_activity_ids')
+
         return session.query(
             Activity
         ).filter(
-            Activity.table_name == relationship.mapper.tables[0].name,
-            Activity.transaction_id <= self.parent_activity.transaction_id
-        ).all()
+            Activity.id.in_(
+                sa.select(
+                    [max_activity_ids_by_record.c.id],
+                    from_obj=max_activity_ids_by_record
+                )
+            )
+        ).filter(Activity.verb != 'delete', primaryjoin).order_by(Activity.id)
+
+    def __getattr__(self, attr):
+        """
+        SELECT *
+        FROM activity a
+        WHERE
+            table_name = 'tag' AND
+            verb != 'delete' AND
+            EXISTS (
+                SELECT 1 FROM activity AS a2
+                INNER JOIN activity AS a3 ON
+                jsonb_merge(a2.old_data, a2.changed_data) ->> 'article_id' =
+                jsonb_merge(a3.old_data, a3.changed_data) ->> 'id'
+                WHERE
+                jsonb_merge(a2.old_data, a2.changed_data) ->> 'tag_id' =
+                jsonb_merge(a.old_data, a.changed_data) ->> 'id' AND
+                jsonb_merge(a3.old_data, a3.changed_data) ->> 'id' = :id:
+
+            )
+        """
+        session = sa.orm.object_session(self.parent_activity)
+        relationship = self.mapper.relationships[attr]
+        Activity = self.parent_activity.__class__
+        if relationship.secondary is not None:
+            aliased_activity = sa.orm.aliased(Activity)
+            aliased_activity2 = sa.orm.aliased(Activity)
+            primaryjoin = (
+                ExpressionReflector(
+                    aliased_activity,
+                    lambda c: c.table == relationship.parent.tables[0]
+                )(relationship.primaryjoin)
+            )
+            primaryjoin = ExpressionReflector(
+                 aliased_activity2,
+                 lambda c: c.table == relationship.secondary
+            )(
+                primaryjoin
+            )
+            secondaryjoin = ExpressionReflector(
+                Activity, lambda c: c.table == relationship.mapper.tables[0]
+            )(
+                ExpressionReflector(
+                    aliased_activity2,
+                    lambda c: c.table == relationship.secondary
+                )(relationship.secondaryjoin)
+            )
+            subquery = sa.select(
+                [sa.text('1')],
+                from_obj=sa.inspect(
+                    aliased_activity
+                ).selectable.join(
+                    sa.inspect(aliased_activity2).selectable,
+                    primaryjoin
+                )
+            ).where(
+                sa.and_(
+                    secondaryjoin,
+                    aliased_activity.data[sa.text("'id'")].astext ==
+                    str(self.parent_activity.data['id']),
+                )
+            )
+
+            query = session.query(
+                Activity
+            ).filter(
+                Activity.table_name == relationship.mapper.tables[0].name,
+                Activity.verb != 'delete',
+                sa.exists(subquery)
+            )
+            print(query)
+        else:
+            if not relationship.uselist:
+                query = self.one_to_one_query(relationship)
+            else:
+                query = self.one_to_many_query(relationship)
+
+        if relationship.uselist:
+            return query.all()
+        obj = query.first()
+        if obj is None or obj.verb == 'delete':
+            return None
+        return obj
 
 
 def activity_base(base, schema=None):

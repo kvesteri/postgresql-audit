@@ -10,22 +10,22 @@ from sqlalchemy.orm import sessionmaker
 from postgresql_audit import VersioningManager
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_user():
     return os.environ.get('POSTGRESQL_AUDIT_TEST_USER', 'postgres')
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_name():
     return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
 
 
-@pytest.fixture()
+@pytest.fixture
 def dns(db_user, db_name):
     return 'postgres://{}@localhost/{}'.format(db_user, db_name)
 
 
-@pytest.fixture()
+@pytest.fixture
 def base():
     return declarative_base()
 
@@ -62,12 +62,12 @@ def versioning_manager(base):
     vm.remove_listeners()
 
 
-@pytest.fixture()
+@pytest.fixture
 def Activity(versioning_manager):
     return versioning_manager.activity_cls
 
 
-@pytest.fixture()
+@pytest.fixture
 def User(base):
     class User(base):
         __tablename__ = 'user'
@@ -78,7 +78,7 @@ def User(base):
     return User
 
 
-@pytest.fixture()
+@pytest.fixture
 def Article(base, User):
     class Article(base):
         __tablename__ = 'article'
@@ -92,9 +92,36 @@ def Article(base, User):
     return Article
 
 
-@pytest.fixture()
-def models(User, Article):
-    return [User, Article]
+@pytest.fixture
+def article_tag(base, versioning_manager):
+    table = sa.Table(
+        'article_tag',
+        base.metadata,
+        sa.Column('article_id', sa.ForeignKey('article.id'), primary_key=True),
+        sa.Column('tag_id', sa.ForeignKey('tag.id'), primary_key=True)
+    )
+    versioning_manager.audit_table(table)
+    return table
+
+
+@pytest.fixture
+def Tag(base, Article, article_tag):
+    class Tag(base):
+        __tablename__ = 'tag'
+        __versioned__ = {}
+        id = sa.Column(sa.Integer, primary_key=True)
+        name = sa.Column(sa.String(100))
+        articles = sa.orm.relationship(
+            Article,
+            secondary=article_tag,
+            backref='tags'
+        )
+    return Tag
+
+
+@pytest.fixture
+def models(User, Article, Tag):
+    return [User, Article, Tag]
 
 
 @pytest.yield_fixture

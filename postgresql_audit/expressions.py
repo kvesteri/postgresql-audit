@@ -68,8 +68,10 @@ def compile_jsonb_change_key_name(element, compiler, **kw):
 
 
 class ExpressionReflector(sa.sql.visitors.ReplacingCloningVisitor):
-    def __init__(self, Activity):
+    def __init__(self, Activity, condition=None):
         self.Activity = Activity
+
+        self.condition = condition if condition is not None else lambda a: a
 
     def is_replaceable(self, column):
         return (
@@ -97,7 +99,11 @@ class ExpressionReflector(sa.sql.visitors.ReplacingCloningVisitor):
             expr.table is self.Activity.__table__
         ):
             return
-        return self.Activity.data[sa.text("'{0}'".format(expr.name))].astext
+        cond = self.condition(expr)
+        if cond is None or cond is False:
+            return None
+        column = sa.text("'{0}'".format(expr.name))
+        return self.Activity.data[column].astext
 
     def __call__(self, expr):
         return self.traverse(expr)
