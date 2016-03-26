@@ -250,3 +250,49 @@ class TestManyToMany(object):
         tag_activities = activity.relationships.tags
         assert len(tag_activities) == expected_tag_count
         assert tag_activities[0].table_name == 'tag'
+
+    def test_with_deleted_object(
+        self,
+        articles,
+        tags,
+        Activity,
+        versioning_manager,
+        session
+    ):
+        session.delete(tags[2])
+        articles[1].name = 'Updated article'
+        session.commit()
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='article')
+            .filter(
+                Activity.data['id'] ==
+                str(articles[1].id)
+            ).order_by(Activity.id.desc()).first()
+        )
+        tag_activities = activity.relationships.tags
+        assert len(tag_activities) == 1
+        assert tag_activities[0].table_name == 'tag'
+
+    def test_with_deleted_association_row(
+        self,
+        articles,
+        tags,
+        Activity,
+        versioning_manager,
+        session
+    ):
+        articles[1].tags.remove(tags[2])
+        articles[1].name = 'Updated article'
+        session.commit()
+        activity = (
+            session.query(Activity)
+            .filter_by(table_name='article')
+            .filter(
+                Activity.data['id'] ==
+                str(articles[1].id)
+            ).order_by(Activity.id.desc()).first()
+        )
+        tag_activities = activity.relationships.tags
+        assert len(tag_activities) == 1
+        assert tag_activities[0].table_name == 'tag'
