@@ -112,6 +112,8 @@ class RelationshipFetcher(object):
             )
         )
 
+
+
     def association_subquery(self, relationship):
         Activity = self.parent_activity.__class__
         aliased_activity = sa.orm.aliased(Activity)
@@ -148,8 +150,12 @@ class RelationshipFetcher(object):
             sa.and_(
                 aliased_activity2.table_name == relationship.secondary.name,
                 secondaryjoin,
-                aliased_activity.data[sa.text("'id'")].astext ==
-                str(self.parent_activity.data['id']),
+                sa.and_(*(
+                    aliased_activity.data[s(key)].astext ==
+                    str(self.parent_activity.data[key])
+                    for key in
+                    relationship.parent.tables[0].primary_key.columns.keys()
+                )),
                 aliased_activity2.verb != 'delete',
                 sa.exists(
                     self.association_exists_subquery(
