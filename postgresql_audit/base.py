@@ -65,6 +65,10 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
+def s(value):
+    return sa.text("'{0}'".format(value))
+
+
 class RelationshipFetcher(object):
     def __init__(self, parent_activity):
         self.parent_activity = parent_activity
@@ -128,34 +132,14 @@ class RelationshipFetcher(object):
             primaryjoin
         ).order_by(Activity.id)
 
-    def many_to_many_query(self, relationship):
-        """
-        Returns a query that fetches all activities objects for given
-        relationship and given parent activity.
+    def correlate_primary_key(self, table, activity_alias, activity_alias2):
+        return sa.and_(*[
+            activity_alias.data[s(key)].astext ==
+            activity_alias2.data[s(key)].astext
+            for key in table.primary_key.columns.keys()
+        ])
 
-        The logic as is follows:
-
-
-
-        SELECT *
-        FROM activity a
-        WHERE
-            table_name = 'tag' AND
-            verb != 'delete' AND
-            EXISTS (
-                SELECT 1 FROM activity AS a2
-                INNER JOIN activity AS a3 ON
-                jsonb_merge(a2.old_data, a2.changed_data) ->> 'article_id' =
-                jsonb_merge(a3.old_data, a3.changed_data) ->> 'id'
-                WHERE
-                jsonb_merge(a2.old_data, a2.changed_data) ->> 'tag_id' =
-                jsonb_merge(a.old_data, a.changed_data) ->> 'id' AND
-                jsonb_merge(a3.old_data, a3.changed_data) ->> 'id' = :id:
-
-            )
-        """
-        session = sa.orm.object_session(self.parent_activity)
-        table_name = relationship.mapper.tables[0].name
+    def association_subquery(self, relationship):
         Activity = self.parent_activity.__class__
         aliased_activity = sa.orm.aliased(Activity)
         aliased_activity2 = sa.orm.aliased(Activity)
@@ -169,9 +153,8 @@ class RelationshipFetcher(object):
         primaryjoin = ExpressionReflector(
              aliased_activity2,
              lambda c: c.table == relationship.secondary
-        )(
-            primaryjoin
-        )
+        )(primaryjoin)
+
         secondaryjoin = ExpressionReflector(
             Activity, lambda c: c.table == relationship.mapper.tables[0]
         )(
@@ -180,7 +163,8 @@ class RelationshipFetcher(object):
                 lambda c: c.table == relationship.secondary
             )(relationship.secondaryjoin)
         )
-        association_subquery = sa.select(
+
+        return sa.select(
             [sa.text('1')],
             from_obj=sa.inspect(
                 aliased_activity
@@ -190,36 +174,70 @@ class RelationshipFetcher(object):
             )
         ).where(
             sa.and_(
+                aliased_activity2.table_name == relationship.secondary.name,
                 secondaryjoin,
                 aliased_activity.data[sa.text("'id'")].astext ==
                 str(self.parent_activity.data['id']),
-                aliased_activity.verb != 'delete'
+                aliased_activity2.verb != 'delete',
+                sa.exists(
+                    sa.select([sa.text('1')], from_obj=aliased_activity3)
+                    .where(
+                        sa.and_(
+                            aliased_activity3.table_name == relationship.secondary.name,
+                            sa.and_(*[
+                                aliased_activity2.data[s(key)].astext ==
+                                aliased_activity3.data[s(key)].astext
+                                for key in relationship.secondary.primary_key.columns.keys()
+                            ]),
+                            aliased_activity3.transaction_id <= self.parent_activity.transaction_id,
+                        )
+                    ).group_by(
+                        *[
+                            aliased_activity3.data[s(key)]
+                            for key
+                            in relationship.secondary.primary_key.columns.keys()
+                        ]
+                    ).having(
+                        sa.func.max(aliased_activity3.transaction_id) ==
+                        aliased_activity2.transaction_id
+                    )
+                )
             )
         )
+
+    def many_to_many_query(self, relationship):
+        """
+        Returns a query that fetches all activities objects for given
+        relationship and given parent activity.
+        """
+        session = sa.orm.object_session(self.parent_activity)
+        table_name = relationship.mapper.tables[0].name
+        Activity = self.parent_activity.__class__
+        aliased_activity4 = sa.orm.aliased(Activity)
+
         subquery = sa.select(
             [sa.text('1')],
-            from_obj=aliased_activity3
+            from_obj=aliased_activity4
         ).where(
             sa.and_(
-                aliased_activity3.table_name == table_name,
-                aliased_activity3.data[sa.text("'id'")].astext ==
+                aliased_activity4.table_name == table_name,
+                aliased_activity4.data[sa.text("'id'")].astext ==
                 Activity.data[sa.text("'id'")].astext,
-                aliased_activity3.transaction_id <=
+                aliased_activity4.transaction_id <=
                 self.parent_activity.transaction_id
             )
-        ).group_by(aliased_activity3.data[sa.text("'id'")]).having(
-            sa.func.max(aliased_activity3.transaction_id) == Activity.transaction_id
+        ).group_by(aliased_activity4.data[sa.text("'id'")]).having(
+            sa.func.max(aliased_activity4.transaction_id) == Activity.transaction_id
         )
 
         query = session.query(
             Activity
         ).filter(
             Activity.table_name == table_name,
-            sa.exists(association_subquery),
+            sa.exists(self.association_subquery(relationship)),
             sa.exists(subquery),
             Activity.verb != 'delete',
         )
-        print(query)
         return query
 
     def __getattr__(self, attr):
