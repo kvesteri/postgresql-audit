@@ -36,38 +36,12 @@ class RelationshipFetcher(object):
             relationship.primaryjoin
         ))
 
-        subquery = sa.select([
-            Activity.data['id']
-        ]).where(
-            sa.and_(
-                Activity.table_name == relationship.mapper.tables[0].name,
-                Activity.transaction_id <= self.parent_activity.transaction_id,
-                primaryjoin
-            )
-        ).alias('subquery')
-
-        max_activity_ids_by_record = sa.select([
-            Activity.data['id'],
-            sa.func.max(Activity.id).label('id')
-        ]).where(
-            sa.and_(
-                Activity.data['id'].in_(subquery),
-                Activity.table_name == relationship.mapper.tables[0].name,
-                Activity.transaction_id <= self.parent_activity.transaction_id,
-            )
-        ).group_by(Activity.data['id']).alias('grouped_activity_ids')
-
         return session.query(
             Activity
         ).filter(
-            Activity.id.in_(
-                sa.select(
-                    [max_activity_ids_by_record.c.id],
-                    from_obj=max_activity_ids_by_record
-                )
-            ),
+            primaryjoin,
             Activity.verb != 'delete',
-            primaryjoin
+            sa.exists(self.one_to_many_subquery(relationship))
         ).order_by(Activity.id)
 
     def correlate_primary_key(self, table, activity_alias, activity_alias2):
@@ -111,8 +85,6 @@ class RelationshipFetcher(object):
                 parent_activity.transaction_id
             )
         )
-
-
 
     def association_subquery(self, relationship):
         Activity = self.parent_activity.__class__
@@ -166,6 +138,31 @@ class RelationshipFetcher(object):
             )
         )
 
+    def one_to_many_subquery(self, relationship):
+        Activity = self.parent_activity.__class__
+        table_name = relationship.mapper.tables[0].name
+        aliased_activity = sa.orm.aliased(Activity)
+        return sa.select(
+            [sa.text('1')],
+            from_obj=aliased_activity
+        ).where(
+            sa.and_(
+                aliased_activity.table_name == table_name,
+                self.correlate_primary_key(
+                    relationship.mapper.tables[0],
+                    aliased_activity,
+                    Activity
+                ),
+                aliased_activity.transaction_id <=
+                self.parent_activity.transaction_id
+            )
+        ).group_by(
+            *self.get_pks(relationship.mapper.tables[0], aliased_activity)
+        ).having(
+            sa.func.max(aliased_activity.transaction_id) ==
+            Activity.transaction_id
+        )
+
     def many_to_many_query(self, relationship):
         """
         Returns a query that fetches all activities objects for given
@@ -174,35 +171,13 @@ class RelationshipFetcher(object):
         session = sa.orm.object_session(self.parent_activity)
         table_name = relationship.mapper.tables[0].name
         Activity = self.parent_activity.__class__
-        aliased_activity4 = sa.orm.aliased(Activity)
-
-        subquery = sa.select(
-            [sa.text('1')],
-            from_obj=aliased_activity4
-        ).where(
-            sa.and_(
-                aliased_activity4.table_name == table_name,
-                self.correlate_primary_key(
-                    relationship.mapper.tables[0],
-                    aliased_activity4,
-                    Activity
-                ),
-                aliased_activity4.transaction_id <=
-                self.parent_activity.transaction_id
-            )
-        ).group_by(
-            *self.get_pks(relationship.mapper.tables[0], aliased_activity4)
-        ).having(
-            sa.func.max(aliased_activity4.transaction_id) ==
-            Activity.transaction_id
-        )
 
         query = session.query(
             Activity
         ).filter(
             Activity.table_name == table_name,
             sa.exists(self.association_subquery(relationship)),
-            sa.exists(subquery),
+            sa.exists(self.one_to_many_subquery(relationship)),
             Activity.verb != 'delete',
         )
         return query
