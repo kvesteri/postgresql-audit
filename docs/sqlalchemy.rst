@@ -48,11 +48,9 @@ You can easily exclude columns from being versioned by adding them as a list to 
 Versioning many-to-many tables
 ------------------------------
 
-Versioning Table objects is easy. Just call audit_table function with the desired table.
+Versioning Table objects is easy. Just call audit_table method with the desired table.
 
 .. code-block:: python
-
-    from postgresql_audit import audit_table
 
 
     class User(Base):
@@ -87,7 +85,7 @@ Versioning Table objects is easy. Just call audit_table function with the desire
         )
 
 
-    audit_table(group_user)
+    versioning_manager.audit_table(group_user)
 
 
 Tracking inserts
