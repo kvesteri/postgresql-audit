@@ -9,46 +9,48 @@ from postgresql_audit import VersioningManager
 from .utils import last_activity
 
 
-@pytest.fixture()
+@pytest.fixture
 def schema_name():
     return 'audit'
 
 
-@pytest.fixture()
-def versioning_manager(schema_name):
-    return VersioningManager(schema_name=schema_name)
+@pytest.yield_fixture
+def versioning_manager(base, schema_name):
+    vm = VersioningManager(schema_name=schema_name)
+    vm.init(base)
+    yield vm
+    vm.remove_listeners()
 
 
-@pytest.yield_fixture()
-def activity_cls(base, versioning_manager):
-    versioning_manager.init(base)
+@pytest.yield_fixture
+def activity_cls(versioning_manager):
     yield versioning_manager.activity_cls
-    versioning_manager.remove_listeners()
 
 
 @pytest.yield_fixture()
 def table_creator(
-        base,
-        connection,
-        session,
-        models,
-        versioning_manager,
-        schema_name
+    base,
+    connection,
+    session,
+    models,
+    versioning_manager,
+    schema_name
 ):
     sa.orm.configure_mappers()
     connection.execute('DROP SCHEMA IF EXISTS {} CASCADE'.format(schema_name))
     tx = connection.begin()
+    versioning_manager.transaction_cls.__table__.create(connection)
     versioning_manager.activity_cls.__table__.create(connection)
     base.metadata.create_all(connection)
     tx.commit()
     yield
+    session.expunge_all()
     base.metadata.drop_all(connection)
     session.commit()
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
-class TestCustomSchemaActivityCreation(object):
-
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+class TestCustomSchemaactivityCreation(object):
     def test_insert(self, user, connection, schema_name):
         activity = last_activity(connection, schema=schema_name)
         assert activity['old_data'] is None
@@ -58,10 +60,10 @@ class TestCustomSchemaActivityCreation(object):
             'age': 15
         }
         assert activity['table_name'] == 'user'
-        assert activity['transaction_id'] > 0
+        assert activity['native_transaction_id'] > 0
         assert activity['verb'] == 'insert'
 
-    def test_operation_after_commit(
+    def test_activity_after_commit(
         self,
         activity_cls,
         user_class,
@@ -75,7 +77,7 @@ class TestCustomSchemaActivityCreation(object):
         session.commit()
         assert session.query(activity_cls).count() == 2
 
-    def test_operation_after_rollback(
+    def test_activity_after_rollback(
         self,
         activity_cls,
         user_class,
@@ -94,43 +96,42 @@ class TestCustomSchemaActivityCreation(object):
         user_class,
         session,
         versioning_manager,
-        schema_name
+        activity_cls
     ):
         versioning_manager.values = {'actor_id': 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = last_activity(session, schema=schema_name)
-        assert activity['actor_id'] == '1'
+        activity = session.query(activity_cls).first()
+        assert activity.transaction.actor_id == '1'
 
     def test_callables_as_manager_defaults(
         self,
         user_class,
         session,
         versioning_manager,
-        schema_name
+        activity_cls
     ):
         versioning_manager.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = last_activity(session, schema=schema_name)
-        assert activity['actor_id'] == '1'
+        activity = session.query(activity_cls).first()
+        assert activity.transaction.actor_id == '1'
 
     def test_raw_inserts(
         self,
         user_class,
         session,
         versioning_manager,
-        schema_name
+        activity_cls
     ):
         versioning_manager.values = {'actor_id': 1}
-        session.execute(user_class.__table__.insert().values(name='John'))
-        session.execute(user_class.__table__.insert().values(name='John'))
         versioning_manager.set_activity_values(session)
-        activity = last_activity(session, schema=schema_name)
-
-        assert activity['actor_id'] == '1'
+        session.execute(user_class.__table__.insert().values(name='John'))
+        session.execute(user_class.__table__.insert().values(name='John'))
+        activity = session.query(activity_cls).first()
+        assert activity.transaction.actor_id == '1'
 
     def test_activity_repr(self, activity_cls):
         assert repr(activity_cls(id=3, table_name='user')) == (
@@ -145,15 +146,16 @@ class TestCustomSchemaActivityCreation(object):
         manager.init(declarative_base())
         sa.orm.configure_mappers()
         assert isinstance(
-            manager.activity_cls.actor_id.property.columns[0].type,
+            manager.transaction_cls.actor_id.property.columns[0].type,
             sa.Integer
         )
-        assert manager.activity_cls.actor
+        assert manager.transaction_cls.actor
         manager.remove_listeners()
 
     def test_data_expression_sql(self, activity_cls):
         assert str(activity_cls.data) == (
-            'jsonb_merge(audit.activity.old_data, audit.activity.changed_data)'
+            'jsonb_merge(audit.activity.old_data, '
+            'audit.activity.changed_data)'
         )
 
     def test_data_expression(self, user, session, activity_cls):
@@ -179,8 +181,8 @@ class TestCustomSchemaActivityCreation(object):
         manager.init(base)
         sa.orm.configure_mappers()
         assert isinstance(
-            manager.activity_cls.actor_id.property.columns[0].type,
+            manager.transaction_cls.actor_id.property.columns[0].type,
             sa.Integer
         )
-        assert manager.activity_cls.actor
+        assert manager.transaction_cls.actor
         manager.remove_listeners()

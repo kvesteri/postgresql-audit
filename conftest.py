@@ -10,27 +10,27 @@ from sqlalchemy.orm import sessionmaker
 from postgresql_audit import VersioningManager
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_user():
     return os.environ.get('POSTGRESQL_AUDIT_TEST_USER', 'postgres')
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_name():
     return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
 
 
-@pytest.fixture()
+@pytest.fixture
 def dns(db_user, db_name):
     return 'postgres://{}@localhost/{}'.format(db_user, db_name)
 
 
-@pytest.fixture()
+@pytest.fixture
 def base():
     return declarative_base()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def engine(dns):
     engine = create_engine(dns)
     engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
@@ -38,14 +38,14 @@ def engine(dns):
     engine.dispose()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def connection(engine):
     conn = engine.connect()
     yield conn
     conn.close()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def session(connection):
     Session = sessionmaker(bind=connection)
     session = Session()
@@ -54,7 +54,7 @@ def session(connection):
     session.close_all()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def versioning_manager(base):
     vm = VersioningManager()
     vm.init(base)
@@ -62,12 +62,12 @@ def versioning_manager(base):
     vm.remove_listeners()
 
 
-@pytest.fixture()
+@pytest.fixture
 def activity_cls(versioning_manager):
     return versioning_manager.activity_cls
 
 
-@pytest.fixture()
+@pytest.fixture
 def user_class(base):
     class User(base):
         __tablename__ = 'user'
@@ -78,7 +78,7 @@ def user_class(base):
     return User
 
 
-@pytest.fixture()
+@pytest.fixture
 def article_class(base):
     class Article(base):
         __tablename__ = 'article'
@@ -88,19 +88,26 @@ def article_class(base):
     return Article
 
 
-@pytest.fixture()
+@pytest.fixture
 def models(user_class, article_class):
     return [user_class, article_class]
 
 
 @pytest.yield_fixture
-def table_creator(base, versioning_manager, connection, session, models,
-                  activity_cls):
+def table_creator(
+    base,
+    versioning_manager,
+    connection,
+    session,
+    models
+):
     sa.orm.configure_mappers()
     tx = connection.begin()
+    versioning_manager.transaction_cls.__table__.create(connection)
     versioning_manager.activity_cls.__table__.create(connection)
     base.metadata.create_all(connection)
     tx.commit()
+    session.commit()
     yield
     base.metadata.drop_all(connection)
     session.commit()

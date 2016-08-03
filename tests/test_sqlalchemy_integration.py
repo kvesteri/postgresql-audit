@@ -10,7 +10,7 @@ from postgresql_audit import VersioningManager
 from .utils import last_activity
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
@@ -21,7 +21,7 @@ class TestActivityCreation(object):
             'age': 15
         }
         assert activity['table_name'] == 'user'
-        assert activity['transaction_id'] > 0
+        assert activity['native_transaction_id'] > 0
         assert activity['verb'] == 'insert'
 
     def test_operation_after_commit(
@@ -62,8 +62,8 @@ class TestActivityCreation(object):
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = last_activity(session)
-        assert activity['actor_id'] == '1'
+        activity = session.query(versioning_manager.activity_cls).first()
+        assert activity.transaction.actor_id == '1'
 
     def test_callables_as_manager_defaults(
         self,
@@ -75,22 +75,26 @@ class TestActivityCreation(object):
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = last_activity(session)
-        assert activity['actor_id'] == '1'
+        activity = session.query(versioning_manager.activity_cls).first()
+        assert activity.transaction.actor_id == '1'
 
     def test_raw_inserts(
         self,
         user_class,
         session,
-        versioning_manager
+        versioning_manager,
+        activity_cls
     ):
         versioning_manager.values = {'actor_id': 1}
-        session.execute(user_class.__table__.insert().values(name='John'))
-        session.execute(user_class.__table__.insert().values(name='John'))
         versioning_manager.set_activity_values(session)
-        activity = last_activity(session)
+        session.execute(user_class.__table__.insert().values(name='John'))
+        session.execute(user_class.__table__.insert().values(name='John'))
 
-        assert activity['actor_id'] == '1'
+        activity = session.query(activity_cls).order_by(
+            activity_cls.issued_at
+        ).first()
+
+        assert activity.transaction.actor_id == '1'
 
     def test_activity_repr(self, activity_cls):
         assert repr(activity_cls(id=3, table_name='user')) == (
@@ -102,10 +106,10 @@ class TestActivityCreation(object):
         manager.init(declarative_base())
         sa.orm.configure_mappers()
         assert isinstance(
-            manager.activity_cls.actor_id.property.columns[0].type,
+            manager.transaction_cls.actor_id.property.columns[0].type,
             sa.Integer
         )
-        assert manager.activity_cls.actor
+        assert manager.transaction_cls.actor
         manager.remove_listeners()
 
     def test_data_expression_sql(self, activity_cls):
@@ -133,10 +137,10 @@ class TestActivityCreation(object):
         manager.init(base)
         sa.orm.configure_mappers()
         assert isinstance(
-            manager.activity_cls.actor_id.property.columns[0].type,
+            manager.transaction_cls.actor_id.property.columns[0].type,
             sa.Integer
         )
-        assert manager.activity_cls.actor
+        assert manager.transaction_cls.actor
         manager.remove_listeners()
 
     def test_disable_contextmanager(
@@ -158,7 +162,7 @@ class TestActivityCreation(object):
         assert session.query(activity_cls).count() == 1
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestColumnExclusion(object):
     """
     Test column exclusion with polymorphic inheritance and column aliases to
@@ -221,7 +225,7 @@ class TestColumnExclusion(object):
         assert session.query(activity_cls).count() == 2
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestActivityObject(object):
     def test_activity_object(self, session, activity_cls, user_class):
         user = user_class(name='John')

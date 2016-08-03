@@ -1,43 +1,32 @@
-CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass, ignored_cols text[]) RETURNS void AS $$body$$
+CREATE OR REPLACE FUNCTION
+${schema_prefix}audit_table(target_table regclass, ignored_cols text[])
+RETURNS void AS $$body$$
 DECLARE
     stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
-    _q_txt text;
-    _ignored_cols_snip text = '';
+    query text;
+    excluded_columns_text text = '';
 BEGIN
     EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_row ON ' || target_table;
     EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_stm ON ' || target_table;
 
     IF array_length(ignored_cols, 1) > 0 THEN
-        _ignored_cols_snip = ', ' || quote_literal(ignored_cols);
+        excluded_columns_text = ', ' || quote_literal(ignored_cols);
     END IF;
-    _q_txt = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
+    query = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
              target_table || ' FOR EACH ROW ' ||
              E'WHEN (current_setting(\'session_replication_role\') ' ||
              E'<> \'local\')' ||
              ' EXECUTE PROCEDURE ${schema_prefix}create_activity(' ||
-             _ignored_cols_snip ||
+             excluded_columns_text ||
              ');';
-    RAISE NOTICE '%',_q_txt;
-    EXECUTE _q_txt;
+    RAISE NOTICE '%', query;
+    EXECUTE query;
     stm_targets = 'TRUNCATE';
 END;
 $$body$$
 language 'plpgsql';
 
-COMMENT ON FUNCTION ${schema_prefix}audit_table(regclass, text[]) IS $$body$$
-Add auditing support to a table.
-
-Arguments:
-   target_table:     Table name, schema qualified if not on search_path
-   ignored_cols:     Columns to exclude from update diffs, ignore updates that change only ignored cols.
-$$body$$;
-
 
 CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass) RETURNS void AS $$body$$
 SELECT ${schema_prefix}audit_table($$1, ARRAY[]::text[]);
 $$body$$ LANGUAGE SQL;
-
-
-COMMENT ON FUNCTION ${schema_prefix}audit_table(regclass) IS $$body$$
-Add auditing support to the given table. Row-level changes will be logged with full client query text. No cols are ignored.
-$$body$$;

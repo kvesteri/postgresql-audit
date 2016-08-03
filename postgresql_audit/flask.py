@@ -16,12 +16,19 @@ class VersioningManager(BaseVersioningManager):
         values = copy(self.values)
         if context_available() and hasattr(g, 'activity_values'):
             values.update(g.activity_values)
-        if 'client_addr' not in values:
-            values['client_addr'] = self.default_client_addr()
-        if 'actor_id' not in values:
-            values['actor_id'] = self.default_actor_id()
+        if (
+            'client_addr' not in values and
+            self.default_client_addr is not None
+        ):
+            values['client_addr'] = self.default_client_addr
+        if (
+            'actor_id' not in values and
+            self.default_actor_id is not None
+        ):
+            values['actor_id'] = self.default_actor_id
         return values
 
+    @property
     def default_actor_id(self):
         from flask.ext.login import current_user
 
@@ -34,6 +41,7 @@ class VersioningManager(BaseVersioningManager):
         except AttributeError:
             return
 
+    @property
     def default_client_addr(self):
         # Return None if we are outside of request context.
         if not context_available():

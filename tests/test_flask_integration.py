@@ -54,7 +54,6 @@ def app(dns, db, login_manager, user_class, article_class):
         return user
 
     application = Flask(__name__)
-    # application.config['SQLALCHEMY_ECHO'] = True
     application.config['SQLALCHEMY_DATABASE_URI'] = dns
     application.secret_key = 'secret'
     application.debug = True
@@ -101,6 +100,7 @@ def client(app):
 def table_creator(client, db, models, activity_cls, versioning_manager):
     db.configure_mappers()
     conn = db.session.connection()
+    versioning_manager.transaction_cls.__table__.create(conn)
     versioning_manager.activity_cls.__table__.create(conn)
     db.Model.metadata.create_all(conn)
     db.session.commit()
@@ -110,9 +110,8 @@ def table_creator(client, db, models, activity_cls, versioning_manager):
     db.session.commit()
 
 
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestFlaskIntegration(object):
-
     def test_client_addr_with_proxies(
         self,
         app,
@@ -120,21 +119,24 @@ class TestFlaskIntegration(object):
         client,
         user,
         user_class,
-        versioning_manager
+        activity_cls,
+        session
     ):
         login(client, user)
         environ_base = dict(REMOTE_ADDR='')
         proxy_headers = dict(X_FORWARDED_FOR='1.1.1.1,77.77.77.77')
-        client.get(url_for('.test_simple_flush'), environ_base=environ_base,
-                   headers=proxy_headers)
-
+        client.get(
+            url_for('.test_simple_flush'),
+            environ_base=environ_base,
+            headers=proxy_headers
+        )
         activities = (
-            db.session.query(versioning_manager.activity_cls)
-            .order_by('id DESC').all()
+            db.session.query(activity_cls)
+            .order_by(activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
-        assert activities[1].actor_id == user.id
-        assert activities[1].client_addr is None
+        assert activities[0].transaction.actor_id == user.id
+        assert activities[0].transaction.client_addr is None
 
     def test_simple_flushing_view(
         self,
@@ -153,8 +155,8 @@ class TestFlaskIntegration(object):
             .order_by(versioning_manager.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
-        assert activities[1].actor_id == user.id
-        assert activities[1].client_addr is None
+        assert activities[0].transaction.actor_id == user.id
+        assert activities[0].transaction.client_addr is None
 
     def test_view_with_overriden_activity_values(
         self,
@@ -170,7 +172,6 @@ class TestFlaskIntegration(object):
         def test_activity_values():
             args = {
                 'actor_id': 4,
-                'target_id': '6',
                 'client_addr': '123.123.123.123'
             }
             with activity_values(**args):
@@ -188,6 +189,5 @@ class TestFlaskIntegration(object):
             .order_by(versioning_manager.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
-        assert activities[1].actor_id == 4
-        assert activities[1].target_id == '6'
-        assert activities[1].client_addr == '123.123.123.123'
+        assert activities[0].transaction.actor_id == 4
+        assert activities[0].transaction.client_addr == '123.123.123.123'

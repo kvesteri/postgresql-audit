@@ -2,7 +2,6 @@ import os
 import string
 import warnings
 from contextlib import contextmanager
-from datetime import timedelta
 from weakref import WeakSet
 
 import sqlalchemy as sa
@@ -59,8 +58,27 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
-def activity_base(base, schema=None):
-    class ActivityBase(base):
+def transaction_base(Base, schema=None):
+    class Transaction(Base):
+        __abstract__ = True
+        __table_args__ = {'schema': schema}
+        id = sa.Column(sa.BigInteger, primary_key=True)
+        native_transaction_id = sa.Column(sa.BigInteger)
+        issued_at = sa.Column(sa.DateTime)
+        client_addr = sa.Column(INET)
+
+        def __repr__(self):
+            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
+                cls=self.__class__.__name__,
+                id=self.id,
+                issued_at=self.issued_at
+            )
+
+    return Transaction
+
+
+def activity_base(Base, schema=None):
+    class ActivityBase(Base):
         __abstract__ = True
         __table_args__ = {'schema': schema}
         id = sa.Column(sa.BigInteger, primary_key=True)
@@ -68,10 +86,8 @@ def activity_base(base, schema=None):
         table_name = sa.Column(sa.Text)
         relid = sa.Column(sa.Integer)
         issued_at = sa.Column(sa.DateTime)
-        transaction_id = sa.Column(sa.BigInteger)
-        client_addr = sa.Column(INET)
+        native_transaction_id = sa.Column(sa.BigInteger)
         verb = sa.Column(sa.Text)
-        target_id = sa.Column(sa.Text)
         old_data = sa.Column(JSONB)
         changed_data = sa.Column(JSONB)
 
@@ -88,8 +104,8 @@ def activity_base(base, schema=None):
 
         @property
         def object(self):
-            table = base.metadata.tables[self.table_name]
-            cls = get_class_by_table(base, table, self.data)
+            table = Base.metadata.tables[self.table_name]
+            cls = get_class_by_table(Base, table, self.data)
             return cls(**self.data)
 
         def __repr__(self):
@@ -131,8 +147,8 @@ class VersioningManager(object):
             ),
             (
                 orm.session.Session,
-                'after_flush',
-                self.receive_after_flush,
+                'before_flush',
+                self.receive_before_flush,
             ),
         )
         self.schema_name = schema_name
@@ -182,7 +198,8 @@ class VersioningManager(object):
         )
 
     def get_table_listeners(self):
-        listeners = [
+        listeners = {'transaction': []}
+        listeners['activity'] = [
             ('after_create', sa.schema.DDL(
                 self.render_tmpl('create_activity.sql') +
                 self.render_tmpl('audit_table_func.sql')
@@ -190,14 +207,14 @@ class VersioningManager(object):
             ('after_create', self.create_operators)
         ]
         if self.schema_name is not None:
-            listeners.extend([
+            listeners['transaction'] = [
                 ('before_create', sa.schema.DDL(
                     self.render_tmpl('create_schema.sql')
                 )),
                 ('after_drop', sa.schema.DDL(
                     self.render_tmpl('drop_schema.sql')
                 )),
-            ])
+            ]
         return listeners
 
     def audit_table(self, table, exclude_columns=None):
@@ -226,7 +243,7 @@ class VersioningManager(object):
 
     def set_activity_values(self, session):
         dialect = session.bind.engine.dialect
-        table = self.activity_cls.__table__
+        table = self.transaction_cls.__table__
 
         if not isinstance(dialect, PGDialect):
             warnings.warn(
@@ -237,24 +254,17 @@ class VersioningManager(object):
             return
 
         values = convert_callables(self.get_transaction_values())
-
         if values:
+            values['native_transaction_id'] = sa.func.txid_current()
+            values['issued_at'] = sa.func.now()
             stmt = (
                 table
-                .update()
+                .insert()
                 .values(**values)
-                .where(
-                    sa.and_(
-                        table.c.transaction_id == sa.func.txid_current(),
-                        table.c.issued_at > (
-                            sa.func.now() - timedelta(days=1)
-                        )
-                    )
-                )
             )
             session.execute(stmt)
 
-    def receive_after_flush(self, session, flush_context):
+    def receive_before_flush(self, session, flush_context, instances):
         self.set_activity_values(session)
 
     def instrument_versioned_classes(self, mapper, cls):
@@ -274,14 +284,18 @@ class VersioningManager(object):
         """
         for cls in self.pending_classes:
             self.audit_table(cls.__table__, cls.__versioned__.get('exclude'))
-        assign_actor(self.base, self.activity_cls, self.actor_cls)
+        assign_actor(self.base, self.transaction_cls, self.actor_cls)
 
     def attach_table_listeners(self):
-        for values in self.table_listeners:
+        for values in self.table_listeners['transaction']:
+            sa.event.listen(self.transaction_cls.__table__, *values)
+        for values in self.table_listeners['activity']:
             sa.event.listen(self.activity_cls.__table__, *values)
 
     def remove_table_listeners(self):
-        for values in self.table_listeners:
+        for values in self.table_listeners['transaction']:
+            sa.event.remove(self.transaction_cls.__table__, *values)
+        for values in self.table_listeners['activity']:
             sa.event.remove(self.activity_cls.__table__, *values)
 
     @property
@@ -322,10 +336,25 @@ class VersioningManager(object):
         class Activity(activity_base(base, self.schema_name)):
             __tablename__ = 'activity'
 
+            transaction_id = sa.Column(
+                sa.BigInteger, sa.ForeignKey(self.transaction_cls.id)
+            )
+            transaction = sa.orm.relationship(
+                self.transaction_cls,
+                backref='activities'
+            )
+
         return Activity
+
+    def transaction_model_factory(self, base):
+        class Transaction(transaction_base(base, self.schema_name)):
+            __tablename__ = 'transaction'
+
+        return Transaction
 
     def init(self, base):
         self.base = base
+        self.transaction_cls = self.transaction_model_factory(base)
         self.activity_cls = self.activity_model_factory(base)
         self.attach_listeners()
 

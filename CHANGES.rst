@@ -4,6 +4,13 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.8.0 (2016-08-03)
+^^^^^^^^^^^^^^^^^^
+
+- Added transaction table
+- Moved actor_id and client_addr columns to transaction table
+
+
 0.7.0 (2016-03-06)
 ^^^^^^^^^^^^^^^^^^
 
