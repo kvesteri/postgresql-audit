@@ -63,7 +63,7 @@ def transaction_base(Base, schema=None):
         __abstract__ = True
         __table_args__ = {'schema': schema}
         id = sa.Column(sa.BigInteger, primary_key=True)
-        native_transaction_id = sa.Column(sa.BigInteger)
+        native_transaction_id = sa.Column(sa.BigInteger, index=True)
         issued_at = sa.Column(sa.DateTime)
         client_addr = sa.Column(INET)
 
