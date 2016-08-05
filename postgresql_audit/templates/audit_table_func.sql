@@ -7,7 +7,6 @@ DECLARE
     excluded_columns_text text = '';
 BEGIN
     EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_row ON ' || target_table;
-    EXECUTE 'DROP TRIGGER IF EXISTS audit_trigger_stm ON ' || target_table;
 
     IF array_length(ignored_cols, 1) > 0 THEN
         excluded_columns_text = ', ' || quote_literal(ignored_cols);
