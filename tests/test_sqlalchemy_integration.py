@@ -215,7 +215,6 @@ class TestColumnExclusion(object):
 
     def test_updating_excluded_child_attr_does_not_add_activity(
         self,
-        table_creator,
         article,
         session,
         activity_cls
@@ -223,6 +222,104 @@ class TestColumnExclusion(object):
         article.updated_at = datetime(2002, 1, 1)
         session.commit()
         assert session.query(activity_cls).count() == 2
+
+
+@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+class TestIsModified(object):
+    @pytest.fixture
+    def article_class(self, base, user_class):
+        class Article(base):
+            __tablename__ = 'article'
+            __versioned__ = {'exclude': ['_updated_at', '_creator_id']}
+            id = sa.Column(sa.Integer, primary_key=True)
+            name = sa.Column(sa.String)
+            updated_at = sa.Column('_updated_at', sa.DateTime)
+            author_id = sa.Column(sa.Integer, sa.ForeignKey(user_class.id))
+            author = sa.orm.relationship(
+                user_class,
+                primaryjoin=author_id == user_class.id
+            )
+            creator_id = sa.Column(
+                '_creator_id',
+                sa.Integer,
+                sa.ForeignKey(user_class.id)
+            )
+            creator = sa.orm.relationship(
+                user_class,
+                primaryjoin=creator_id == user_class.id
+            )
+        return Article
+
+    @pytest.fixture
+    def user_class(self, base):
+        class User(base):
+            __tablename__ = 'user'
+            id = sa.Column(sa.Integer, primary_key=True)
+            name = sa.Column(sa.String)
+        return User
+
+    def test_modified_transient_object(
+        self,
+        versioning_manager,
+        article_class,
+        session
+    ):
+        article = article_class(name='Article 1')
+        session.add(article)
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
+
+    def test_modified_excluded_column_with_persistent_object(
+        self,
+        versioning_manager,
+        article,
+        session
+    ):
+        article.updated_at = datetime.now()
+        assert not versioning_manager.is_modified(article)
+        assert not versioning_manager.is_modified(session)
+
+    def test_modified_persistent_object(
+        self,
+        versioning_manager,
+        article,
+        session
+    ):
+        article.name = 'Article updated'
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
+
+    def test_modified_excluded_relationship_column(
+        self,
+        versioning_manager,
+        user_class,
+        article,
+        session
+    ):
+        article.creator = user_class(name='Someone')
+        assert not versioning_manager.is_modified(article)
+        assert not versioning_manager.is_modified(session)
+
+    def test_modified_relationship(
+        self,
+        versioning_manager,
+        user_class,
+        article,
+        session
+    ):
+        article.author = user_class(name='Someone')
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
+
+    def test_deleted_object(
+        self,
+        versioning_manager,
+        user_class,
+        article,
+        session
+    ):
+        session.delete(article)
+        assert versioning_manager.is_modified(session)
 
 
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')

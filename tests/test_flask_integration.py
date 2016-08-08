@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
+
 import pytest
 from flask import Flask, url_for
 from flask.ext.login import LoginManager
 from flask.ext.sqlalchemy import SQLAlchemy
+import sqlalchemy as sa
 
 from postgresql_audit.flask import activity_values, VersioningManager
 
@@ -33,13 +36,13 @@ def login_manager():
     return LoginManager()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def engine(db):
     yield db.session.bind
     db.session.bind.dispose()
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def connection(db, engine):
     conn = db.session.connection()
     yield conn
@@ -71,7 +74,7 @@ def app(dns, db, login_manager, user_class, article_class):
     return application
 
 
-@pytest.yield_fixture()
+@pytest.yield_fixture
 def versioning_manager(db):
     vm = VersioningManager()
     vm.init(db.Model)
@@ -79,9 +82,9 @@ def versioning_manager(db):
     vm.remove_listeners()
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def activity_cls(versioning_manager):
-    yield versioning_manager.activity_cls
+    return versioning_manager.activity_cls
 
 
 @pytest.yield_fixture
@@ -110,15 +113,25 @@ def table_creator(client, db, models, activity_cls, versioning_manager):
     db.session.commit()
 
 
+@pytest.fixture
+def article_class(base):
+    class Article(base):
+        __tablename__ = 'article'
+        __versioned__ = {'exclude': ['updated_at']}
+
+        id = sa.Column(sa.Integer, primary_key=True)
+        name = sa.Column(sa.String(100))
+        updated_at = sa.Column(sa.DateTime)
+    return Article
+
+
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestFlaskIntegration(object):
     def test_client_addr_with_proxies(
         self,
-        app,
-        db,
         client,
         user,
-        user_class,
+        db,
         activity_cls,
         session
     ):
@@ -140,11 +153,9 @@ class TestFlaskIntegration(object):
 
     def test_simple_flushing_view(
         self,
-        app,
         db,
         client,
         user,
-        user_class,
         versioning_manager
     ):
         login(client, user)
@@ -160,11 +171,10 @@ class TestFlaskIntegration(object):
 
     def test_view_with_overriden_activity_values(
         self,
-        app,
         db,
+        app,
         client,
         user,
-        user_class,
         article_class,
         versioning_manager
     ):
@@ -191,3 +201,26 @@ class TestFlaskIntegration(object):
         assert len(activities) == 2
         assert activities[0].transaction.actor_id == 4
         assert activities[0].transaction.client_addr == '123.123.123.123'
+
+    def test_updating_excluded_attr_does_not_create_transaction(
+        self,
+        app,
+        client,
+        article_class,
+        db,
+        transaction_cls,
+        user,
+        versioning_manager
+    ):
+        @app.route('/update-excluded-column')
+        def test_update_excluded_column():
+            article = article_class(name='Some article')
+            db.session.add(article)
+            db.session.commit()
+            article.updated_at = datetime.now()
+            db.session.commit()
+            return ''
+
+        login(client, user)
+        client.get(url_for('.test_update_excluded_column'))
+        assert db.session.query(transaction_cls).count() == 1

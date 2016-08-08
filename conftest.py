@@ -68,6 +68,11 @@ def activity_cls(versioning_manager):
 
 
 @pytest.fixture
+def transaction_cls(versioning_manager):
+    return versioning_manager.transaction_cls
+
+
+@pytest.fixture
 def user_class(base):
     class User(base):
         __tablename__ = 'user'
@@ -109,6 +114,7 @@ def table_creator(
     tx.commit()
     session.commit()
     yield
+    session.expunge_all()
     base.metadata.drop_all(connection)
     session.commit()
 

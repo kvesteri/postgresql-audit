@@ -21,6 +21,10 @@ class ImproperlyConfigured(Exception):
     pass
 
 
+class ClassNotVersioned(Exception):
+    pass
+
+
 class StatementExecutor(object):
     def __init__(self, stmt):
         self.stmt = stmt
@@ -264,8 +268,40 @@ class VersioningManager(object):
             )
             session.execute(stmt)
 
+    def modified_columns(self, obj):
+        columns = set()
+        for key, attr in sa.inspect(obj).attrs.items():
+            prop = getattr(obj.__class__, key).property
+            if attr.history.has_changes():
+                columns |= set(
+                    prop.columns
+                    if isinstance(prop, sa.orm.ColumnProperty)
+                    else
+                    [local for local, remote in prop.local_remote_pairs]
+                )
+        return columns
+
+    def is_modified(self, obj_or_session):
+        if hasattr(obj_or_session, '__mapper__'):
+            if not hasattr(obj_or_session, '__versioned__'):
+                raise ClassNotVersioned(obj_or_session.__class__.__name__)
+            excluded = obj_or_session.__versioned__.get('exclude', [])
+            return bool(
+                set([
+                    column.name
+                    for column in self.modified_columns(obj_or_session)
+                ]) - set(excluded)
+            )
+        else:
+            return any(
+                self.is_modified(entity) or entity in obj_or_session.deleted
+                for entity in obj_or_session
+                if hasattr(entity, '__versioned__')
+            )
+
     def receive_before_flush(self, session, flush_context, instances):
-        self.set_activity_values(session)
+        if self.is_modified(session):
+            self.set_activity_values(session)
 
     def instrument_versioned_classes(self, mapper, cls):
         """
