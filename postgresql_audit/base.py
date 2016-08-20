@@ -274,7 +274,7 @@ class VersioningManager(object):
         for key, attr in sa.inspect(obj).attrs.items():
             if key in mapper.synonyms.keys():
                 continue
-            prop = mapper.all_orm_descriptors[key].property
+            prop = getattr(obj.__class__, key).property
             if attr.history.has_changes():
                 columns |= set(
                     prop.columns

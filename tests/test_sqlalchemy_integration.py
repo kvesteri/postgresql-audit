@@ -236,10 +236,6 @@ class TestIsModified(object):
             _created_at = sa.Column(sa.DateTime)
             updated_at = sa.Column('_updated_at', sa.DateTime)
             author_id = sa.Column(sa.Integer, sa.ForeignKey(user_class.id))
-            author = sa.orm.relationship(
-                user_class,
-                primaryjoin=author_id == user_class.id
-            )
             creator_id = sa.Column(
                 '_creator_id',
                 sa.Integer,
@@ -255,6 +251,14 @@ class TestIsModified(object):
             def created_at(self):
                 return self._created_at
 
+        # Test for SA issue #3778:
+        # https://bitbucket.org/zzzeek/sqlalchemy/issues/3778
+        Article.__mapper__.all_orm_descriptors
+
+        Article.author = sa.orm.relationship(
+            user_class,
+            primaryjoin=Article.author_id == user_class.id
+        )
         return Article
 
     @pytest.fixture

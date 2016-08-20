@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.8.2 (2016-08-20)
+^^^^^^^^^^^^^^^^^^
+
+- Added a workaround for SQLAlchemy issue #3778
+
+
 0.8.1 (2016-08-20)
 ^^^^^^^^^^^^^^^^^^
 
