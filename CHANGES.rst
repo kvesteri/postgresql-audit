@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.8.1 (2016-08-20)
+^^^^^^^^^^^^^^^^^^
+
+- Fixed modified_columns method to work with synonym properties
+
+
 0.8.0 (2016-08-03)
 ^^^^^^^^^^^^^^^^^^
 

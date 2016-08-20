@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, synonym_for
 
 from postgresql_audit import VersioningManager
 
@@ -233,6 +233,7 @@ class TestIsModified(object):
             __versioned__ = {'exclude': ['_updated_at', '_creator_id']}
             id = sa.Column(sa.Integer, primary_key=True)
             name = sa.Column(sa.String)
+            _created_at = sa.Column(sa.DateTime)
             updated_at = sa.Column('_updated_at', sa.DateTime)
             author_id = sa.Column(sa.Integer, sa.ForeignKey(user_class.id))
             author = sa.orm.relationship(
@@ -248,6 +249,12 @@ class TestIsModified(object):
                 user_class,
                 primaryjoin=creator_id == user_class.id
             )
+
+            @synonym_for('_created_at')
+            @property
+            def created_at(self):
+                return self._created_at
+
         return Article
 
     @pytest.fixture
@@ -256,7 +263,18 @@ class TestIsModified(object):
             __tablename__ = 'user'
             id = sa.Column(sa.Integer, primary_key=True)
             name = sa.Column(sa.String)
+
         return User
+
+    def test_class_with_synonyms(
+        self,
+        article_class,
+        versioning_manager,
+        session
+    ):
+        article = article_class(name='Someone', _created_at=datetime.now())
+        session.add(article)
+        assert versioning_manager.is_modified(article)
 
     def test_modified_transient_object(
         self,

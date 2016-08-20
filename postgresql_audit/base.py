@@ -270,8 +270,11 @@ class VersioningManager(object):
 
     def modified_columns(self, obj):
         columns = set()
+        mapper = sa.inspect(obj.__class__)
         for key, attr in sa.inspect(obj).attrs.items():
-            prop = getattr(obj.__class__, key).property
+            if key in mapper.synonyms.keys():
+                continue
+            prop = mapper.all_orm_descriptors[key].property
             if attr.history.has_changes():
                 columns |= set(
                     prop.columns
