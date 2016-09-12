@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.8.3 (2016-08-20)
+^^^^^^^^^^^^^^^^^^
+
+- Fixed Flask ExtDeprecationWarnings (#17, courtesy of jpvanhal)
+
+
 0.8.2 (2016-08-20)
 ^^^^^^^^^^^^^^^^^^
 
