@@ -3,8 +3,8 @@ from datetime import datetime
 
 import pytest
 from flask import Flask, url_for
-from flask.ext.login import LoginManager
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa
 
 from postgresql_audit.flask import activity_values, VersioningManager
