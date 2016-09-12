@@ -30,7 +30,7 @@ class VersioningManager(BaseVersioningManager):
 
     @property
     def default_actor_id(self):
-        from flask.ext.login import current_user
+        from flask_login import current_user
 
         # Return None if we are outside of request context.
         if not context_available():
