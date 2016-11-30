@@ -151,7 +151,7 @@ Hence you can get the desired activities as follows:
 
     activities = session.query(Activity).filter(
         Activity.table_name == 'article',
-        Activity.data['id'].cast(db.Integer) == 3
+        Activity.data['id'].astext.cast(db.Integer) == 3
     )
 
 

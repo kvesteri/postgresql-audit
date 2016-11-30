@@ -113,7 +113,7 @@ class TestActivityCreation(object):
         manager.remove_listeners()
 
     def test_data_expression_sql(self, activity_cls):
-        assert str(activity_cls.data) == (
+        assert str(activity_cls.data.expression) == (
             'jsonb_merge(activity.old_data, activity.changed_data)'
         )
 
@@ -122,7 +122,7 @@ class TestActivityCreation(object):
         session.commit()
         assert session.query(activity_cls).filter(
             activity_cls.table_name == 'user',
-            activity_cls.data['id'].cast(sa.Integer) == user.id
+            activity_cls.data['id'].astext.cast(sa.Integer) == user.id
         ).count() == 2
 
     def test_custom_string_actor_class(self):
