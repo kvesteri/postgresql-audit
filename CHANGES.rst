@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.8.4 (2016-03-27)
+^^^^^^^^^^^^^^^^^^
+
+- Allow passing transaction_cls parameter to ``activity_base`` function (#23, pull request courtesy jmagnusson)
+
+
 0.8.3 (2016-08-20)
 ^^^^^^^^^^^^^^^^^^
 
