@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import array, INET, JSONB
 from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
@@ -62,7 +63,7 @@ def assign_actor(base, cls, actor_cls):
         cls.actor_id = sa.Column(sa.Text)
 
 
-def transaction_base(Base, schema=None):
+def transaction_base(Base, schema):
     class Transaction(Base):
         __abstract__ = True
         __table_args__ = {'schema': schema}
@@ -81,7 +82,8 @@ def transaction_base(Base, schema=None):
     return Transaction
 
 
-def activity_base(Base, schema=None):
+def activity_base(Base, schema, transaction_cls):
+
     class ActivityBase(Base):
         __abstract__ = True
         __table_args__ = {'schema': schema}
@@ -94,6 +96,17 @@ def activity_base(Base, schema=None):
         verb = sa.Column(sa.Text)
         old_data = sa.Column(JSONB)
         changed_data = sa.Column(JSONB)
+
+        @declared_attr
+        def transaction_id(cls):
+            return sa.Column(
+                sa.BigInteger,
+                sa.ForeignKey(transaction_cls.id)
+            )
+
+        @declared_attr
+        def transaction(cls):
+            return sa.orm.relationship(transaction_cls, backref='activities')
 
         @hybrid_property
         def data(self):
@@ -371,17 +384,9 @@ class VersioningManager(object):
         for listener in self.listeners:
             sa.event.remove(*listener)
 
-    def activity_model_factory(self, base):
-        class Activity(activity_base(base, self.schema_name)):
+    def activity_model_factory(self, base, transaction_cls):
+        class Activity(activity_base(base, self.schema_name, transaction_cls)):
             __tablename__ = 'activity'
-
-            transaction_id = sa.Column(
-                sa.BigInteger, sa.ForeignKey(self.transaction_cls.id)
-            )
-            transaction = sa.orm.relationship(
-                self.transaction_cls,
-                backref='activities'
-            )
 
         return Activity
 
@@ -394,7 +399,10 @@ class VersioningManager(object):
     def init(self, base):
         self.base = base
         self.transaction_cls = self.transaction_model_factory(base)
-        self.activity_cls = self.activity_model_factory(base)
+        self.activity_cls = self.activity_model_factory(
+            base,
+            self.transaction_cls
+        )
         self.attach_listeners()
 
 
