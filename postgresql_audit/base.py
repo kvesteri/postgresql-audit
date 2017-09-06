@@ -12,8 +12,6 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
-from .expressions import jsonb_merge
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 cached_statements = {}
 
@@ -94,8 +92,8 @@ def activity_base(Base, schema, transaction_cls):
         issued_at = sa.Column(sa.DateTime)
         native_transaction_id = sa.Column(sa.BigInteger)
         verb = sa.Column(sa.Text)
-        old_data = sa.Column(JSONB)
-        changed_data = sa.Column(JSONB)
+        old_data = sa.Column(JSONB, default={}, server_default='{}')
+        changed_data = sa.Column(JSONB, default={}, server_default='{}')
 
         @declared_attr
         def transaction_id(cls):
@@ -117,7 +115,7 @@ def activity_base(Base, schema, transaction_cls):
 
         @data.expression
         def data(cls):
-            return jsonb_merge(cls.old_data, cls.changed_data)
+            return cls.old_data + cls.changed_data
 
         @property
         def object(self):

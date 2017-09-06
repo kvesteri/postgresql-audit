@@ -31,8 +31,8 @@ BEGIN
         LIMIT 1
     );
     audit_row.verb = LOWER(TG_OP);
-    audit_row.old_data = NULL;
-    audit_row.changed_data = NULL;
+    audit_row.old_data = '{}'::jsonb;
+    audit_row.changed_data = '{}'::jsonb;
 
     IF TG_ARGV[0] IS NOT NULL THEN
         excluded_cols = TG_ARGV[0]::text[];

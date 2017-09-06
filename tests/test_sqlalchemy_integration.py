@@ -14,7 +14,7 @@ from .utils import last_activity
 class TestActivityCreation(object):
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['old_data'] is None
+        assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John',
@@ -114,7 +114,7 @@ class TestActivityCreation(object):
 
     def test_data_expression_sql(self, activity_cls):
         assert str(activity_cls.data.expression) == (
-            'jsonb_merge(activity.old_data, activity.changed_data)'
+            'activity.old_data || activity.changed_data'
         )
 
     def test_data_expression(self, user, session, activity_cls):

@@ -5,7 +5,7 @@ from .base import (  # noqa
     versioning_manager,
     VersioningManager
 )
-from .expressions import jsonb_change_key_name, jsonb_merge  # noqa
+from .expressions import jsonb_change_key_name  # noqa
 from .migrations import (  # noqa
     add_column,
     alter_column,
@@ -14,4 +14,4 @@ from .migrations import (  # noqa
     rename_table
 )
 
-__version__ = '0.8.4'
+__version__ = '0.9.0'

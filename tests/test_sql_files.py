@@ -23,7 +23,7 @@ class TestActivityCreationWithColumnExclusion(object):
 
     def test_insert(self, user, connection):
         activity = last_activity(connection)
-        assert activity['old_data'] is None
+        assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John'
@@ -50,7 +50,7 @@ class TestActivityCreationWithColumnExclusion(object):
         session.delete(user)
         session.flush()
         activity = last_activity(session)
-        assert activity['changed_data'] is None
+        assert activity['changed_data'] == {}
         assert activity['old_data'] == {
             'id': user.id,
             'name': 'John',

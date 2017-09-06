@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .expressions import jsonb_change_key_name, jsonb_merge
+from .expressions import jsonb_change_key_name
 
 
 def get_activity_table(schema=None):
@@ -67,8 +67,8 @@ def alter_column(conn, table, column_name, func, schema=None):
         activity_table
         .update()
         .values(
-            old_data=jsonb_merge(
-                activity_table.c.old_data,
+            old_data=(
+                activity_table.c.old_data +
                 sa.cast(sa.func.json_build_object(
                     column_name,
                     func(
@@ -77,8 +77,8 @@ def alter_column(conn, table, column_name, func, schema=None):
                     )
                 ), JSONB)
             ),
-            changed_data=jsonb_merge(
-                activity_table.c.changed_data,
+            changed_data=(
+                activity_table.c.changed_data +
                 sa.cast(sa.func.json_build_object(
                     column_name,
                     func(
@@ -193,26 +193,23 @@ def add_column(conn, table, column_name, default_value=None, schema=None):
             old_data=sa.case(
                 [
                     (
-                        activity_table.c.old_data.isnot(None),
-                        jsonb_merge(
-                            activity_table.c.old_data,
-                            data
-                        )
+                        sa.cast(activity_table.c.old_data, sa.Text) != '{}',
+                        activity_table.c.old_data + data
                     ),
                 ],
-                else_=None
+                else_=sa.cast({}, JSONB)
             ),
             changed_data=sa.case(
                 [
                     (
                         sa.and_(
-                            activity_table.c.changed_data.isnot(None),
+                            sa.cast(
+                                activity_table.c.changed_data,
+                                sa.Text
+                            ) != '{}',
                             activity_table.c.verb != 'update'
                         ),
-                        jsonb_merge(
-                            activity_table.c.changed_data,
-                            data
-                        ),
+                        activity_table.c.changed_data + data
                     )
                 ],
                 else_=activity_table.c.changed_data
