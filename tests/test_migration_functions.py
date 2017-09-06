@@ -90,7 +90,7 @@ class TestRemoveColumn(object):
     def test_updates_changed_data(self, session, user, connection):
         remove_column(connection, 'user', 'name')
         activity = last_activity(connection)
-        assert activity['old_data'] is None
+        assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'age': 15
@@ -126,7 +126,7 @@ class TestAddColumn(object):
     def test_updates_changed_data(self, session, user, connection):
         add_column(connection, 'user', 'some_column')
         activity = last_activity(connection)
-        assert activity['old_data'] is None
+        assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'age': 15,

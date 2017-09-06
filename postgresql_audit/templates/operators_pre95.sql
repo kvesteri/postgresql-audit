@@ -23,3 +23,30 @@ CREATE OPERATOR - (
   RIGHTARG = text,
   PROCEDURE = jsonb_subtract
 );
+
+
+CREATE OR REPLACE FUNCTION jsonb_merge(data jsonb, merge_data jsonb)
+RETURNS jsonb
+IMMUTABLE
+LANGUAGE sql
+AS $$$$
+    SELECT ('{'||string_agg(to_json(key)||':'||value, ',')||'}')::jsonb
+    FROM (
+        WITH to_merge AS (
+            SELECT * FROM jsonb_each(merge_data)
+        )
+        SELECT *
+        FROM jsonb_each(data)
+        WHERE key NOT IN (SELECT key FROM to_merge)
+        UNION ALL
+        SELECT * FROM to_merge
+    ) t;
+$$$$;
+
+DROP OPERATOR IF EXISTS || (jsonb, jsonb);
+
+CREATE OPERATOR || (
+  LEFTARG = jsonb,
+  RIGHTARG = jsonb,
+  PROCEDURE = jsonb_merge
+);

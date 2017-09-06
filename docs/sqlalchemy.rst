@@ -101,7 +101,7 @@ Now we can check the newly created activity.
     activity.id             # 1
     activity.table_name     # 'article'
     activity.verb           # 'insert'
-    activity.old_data       # None
+    activity.old_data       # {}
     activity.changed_data   # {'id': '1', 'name': 'Some article'}
 
 
@@ -136,7 +136,7 @@ Tracking deletes
     activity.table_name     # 'article'
     activity.verb           # 'delete'
     activity.old_data       # {'id': '1', 'name': 'Some other article'}
-    activity.changed_data   # None
+    activity.changed_data   # {}
 
 
 Finding history of specific record

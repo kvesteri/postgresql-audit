@@ -4,6 +4,14 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.9.0 (2017-09-06)
+^^^^^^^^^^^^^^^^^^
+
+- Add different PostgreSQL versions (9.4, 9.5 and 9.6) to test matrix
+- Define activity old_data and changed_data defaults as empty JSONBs
+- Make ``Activity.data`` use new 9.6 JSONB concat operator. On PostgreSQL 9.5 and 9.4 this still uses fallback function.
+
+
 0.8.4 (2016-03-27)
 ^^^^^^^^^^^^^^^^^^
 

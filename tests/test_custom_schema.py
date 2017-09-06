@@ -53,7 +53,7 @@ def table_creator(
 class TestCustomSchemaactivityCreation(object):
     def test_insert(self, user, connection, schema_name):
         activity = last_activity(connection, schema=schema_name)
-        assert activity['old_data'] is None
+        assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'name': 'John',
@@ -154,17 +154,17 @@ class TestCustomSchemaactivityCreation(object):
 
     def test_data_expression_sql(self, activity_cls):
         assert str(activity_cls.data.expression) == (
-            'jsonb_merge(audit.activity.old_data, '
-            'audit.activity.changed_data)'
+            'audit.activity.old_data || audit.activity.changed_data'
         )
 
     def test_data_expression(self, user, session, activity_cls):
         user.name = 'Luke'
         session.commit()
-        assert session.query(activity_cls).filter(
+        query = session.query(activity_cls).filter(
             activity_cls.table_name == 'user',
             activity_cls.data['id'].astext.cast(sa.Integer) == user.id
-        ).count() == 2
+        )
+        assert query.count() == 2
 
     def test_custom_string_actor_class(self, schema_name):
         base = declarative_base()
