@@ -2,15 +2,15 @@ CREATE OR REPLACE FUNCTION jsonb_change_key_name(data jsonb, old_key text, new_k
 RETURNS jsonb
 IMMUTABLE
 LANGUAGE sql
-AS $$$$
+AS $$
     SELECT ('{'||string_agg(to_json(CASE WHEN key = old_key THEN new_key ELSE key END)||':'||value, ',')||'}')::jsonb
     FROM (
         SELECT *
         FROM jsonb_each(data)
     ) t;
-$$$$;
+$$;
 
-CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity() RETURNS TRIGGER AS $$body$$
+CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity() RETURNS TRIGGER AS $$
 DECLARE
     audit_row ${schema_prefix}activity;
     excluded_cols text[] = ARRAY[]::text[];
@@ -55,7 +55,7 @@ BEGIN
     INSERT INTO ${schema_prefix}activity VALUES (audit_row.*);
     RETURN NULL;
 END;
-$$body$$
+$$
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public;

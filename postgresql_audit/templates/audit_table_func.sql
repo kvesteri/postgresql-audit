@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION
 ${schema_prefix}audit_table(target_table regclass, ignored_cols text[])
-RETURNS void AS $$body$$
+RETURNS void AS $$
 DECLARE
     stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
     query text;
@@ -22,10 +22,10 @@ BEGIN
     EXECUTE query;
     stm_targets = 'TRUNCATE';
 END;
-$$body$$
+$$
 language 'plpgsql';
 
 
-CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass) RETURNS void AS $$body$$
-SELECT ${schema_prefix}audit_table($$1, ARRAY[]::text[]);
-$$body$$ LANGUAGE SQL;
+CREATE OR REPLACE FUNCTION ${schema_prefix}audit_table(target_table regclass) RETURNS void AS $$
+SELECT ${schema_prefix}audit_table(target_table, ARRAY[]::text[]);
+$$ LANGUAGE SQL;

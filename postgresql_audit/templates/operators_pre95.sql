@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION jsonb_subtract(
   LANGUAGE sql
   IMMUTABLE
   STRICT
-AS $$function$$
+AS $$
 SELECT CASE WHEN "json" ? "key_to_remove" THEN COALESCE(
   (SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
      FROM jsonb_each("json")
@@ -15,7 +15,7 @@ SELECT CASE WHEN "json" ? "key_to_remove" THEN COALESCE(
 )::jsonb
 ELSE "json"
 END
-$$function$$;
+$$;
 
 DROP OPERATOR IF EXISTS - (jsonb, text);
 CREATE OPERATOR - (
@@ -29,7 +29,7 @@ CREATE OR REPLACE FUNCTION jsonb_merge(data jsonb, merge_data jsonb)
 RETURNS jsonb
 IMMUTABLE
 LANGUAGE sql
-AS $$$$
+AS $$
     SELECT ('{'||string_agg(to_json(key)||':'||value, ',')||'}')::jsonb
     FROM (
         WITH to_merge AS (
@@ -41,7 +41,7 @@ AS $$$$
         UNION ALL
         SELECT * FROM to_merge
     ) t;
-$$$$;
+$$;
 
 DROP OPERATOR IF EXISTS || (jsonb, jsonb);
 

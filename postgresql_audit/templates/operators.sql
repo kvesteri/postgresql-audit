@@ -4,10 +4,10 @@ CREATE OR REPLACE FUNCTION jsonb_subtract(
   "keys" TEXT[]
 )
   RETURNS jsonb
-  LANGUAGE sql
+  LANGUAGE SQL
   IMMUTABLE
   STRICT
-AS $$function$$
+AS $$
 SELECT CASE WHEN "json" ?| "keys" THEN COALESCE(
   (SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
      FROM jsonb_each("json")
@@ -16,7 +16,7 @@ SELECT CASE WHEN "json" ?| "keys" THEN COALESCE(
 )::jsonb
 ELSE "json"
 END
-$$function$$;
+$$;
 
 DROP OPERATOR IF EXISTS - (jsonb, text[]);
 CREATE OPERATOR - (
@@ -25,26 +25,16 @@ CREATE OPERATOR - (
   PROCEDURE = jsonb_subtract
 );
 
-CREATE OR REPLACE FUNCTION jsonb_subtract(
-  "json" jsonb,
-  "remove" jsonb
-)
-  RETURNS jsonb
-  LANGUAGE sql
-  IMMUTABLE
-  STRICT
-AS $$function$$
-SELECT COALESCE(
-  (
-    SELECT ('{' || string_agg(to_json("key")::text || ':' || "value", ',') || '}')
-    FROM jsonb_each("json")
-    WHERE NOT
-      ('{' || to_json("key")::text || ':' || "value" || '}')::jsonb <@ "remove"
-      -- Note: updated using code from http://8kb.co.uk/blog/2015/01/16/wanting-for-a-hstore-style-delete-operator-in-jsonb/
-  ),
-  '{}'
-)::jsonb
-$$function$$;
+-- http://coussej.github.io/2016/05/24/A-Minus-Operator-For-PostgreSQLs-JSONB/
+CREATE OR REPLACE FUNCTION jsonb_subtract(arg1 jsonb, arg2 jsonb)
+RETURNS jsonb AS $$
+SELECT
+  COALESCE(json_object_agg(key, value), '{}')::jsonb
+FROM
+  jsonb_each(arg1)
+WHERE
+  (arg1 -> key) <> (arg2 -> key) OR (arg2 -> key) IS NULL
+$$ LANGUAGE SQL;
 
 DROP OPERATOR IF EXISTS - (jsonb, jsonb);
 

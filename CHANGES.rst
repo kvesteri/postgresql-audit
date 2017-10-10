@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.9.1 (2017-10-10)
+^^^^^^^^^^^^^^^^^^
+
+- Fix jsonb_subtract (jsonb - jsonb) support for arrays as values
+
+
 0.9.0 (2017-09-06)
 ^^^^^^^^^^^^^^^^^^
 

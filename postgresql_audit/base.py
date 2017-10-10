@@ -188,7 +188,7 @@ class VersioningManager(object):
     def render_tmpl(self, tmpl_name):
         file_contents = read_file(
             'templates/{}'.format(tmpl_name)
-        ).replace('%', '%%')
+        ).replace('%', '%%').replace('$$', '$$$$')
         tmpl = string.Template(file_contents)
         context = dict(schema_name=self.schema_name)
 
@@ -201,16 +201,16 @@ class VersioningManager(object):
                 'REVOKE ALL ON {schema_prefix}activity FROM public;'
             ).format(**context)
 
-        return tmpl.substitute(**context)
+        temp = tmpl.substitute(**context)
+        return temp
 
     def create_operators(self, target, bind, **kwargs):
         if bind.dialect.server_version_info < (9, 5, 0):
             StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
                 target, bind, **kwargs
             )
-        StatementExecutor(self.render_tmpl('operators.sql'))(
-            target, bind, **kwargs
-        )
+        operators_template = self.render_tmpl('operators.sql')
+        StatementExecutor(operators_template)(target, bind, **kwargs)
 
     def get_table_listeners(self):
         listeners = {'transaction': []}
