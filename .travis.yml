@@ -2,64 +2,38 @@ sudo: required
 dist: trusty
 
 before_install:
+  - wget -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+  - sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs 2>/dev/null)-pgdg main" >> /etc/apt/sources.list.d/postgresql.list'
   - sudo apt-get update
   - sudo /etc/init.d/postgresql stop
+  - sudo apt-get install postgresql-10 postgresql-client-10
+  - sudo /etc/init.d/postgresql stop
+  - sudo cp /etc/postgresql/9.6/main/pg_hba.conf /etc/postgresql/10/main/pg_hba.conf
+  - sudo sed -i 's/port = 5433/port = 5432/' /etc/postgresql/10/main/postgresql.conf
   - sudo /etc/init.d/postgresql start $POSTGRESQL_VERSION
 before_script:
   - psql -c 'create database postgresql_audit_test;' -U postgres
 
 language: python
+python:
+  - 2.7
+  - 3.3
+  - 3.4
+  - 3.5
+  - 3.6
+env:
+  global:
+    - TOXENV='py-sqla{0.9,1.0,1.1}'
+  matrix:
+    - POSTGRESQL_VERSION=9.4
+    - POSTGRESQL_VERSION=9.5
+    - POSTGRESQL_VERSION=9.6
+    - POSTGRESQL_VERSION=10
 
 matrix:
   include:
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
   - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.6
-    env:
-      - TOXENV='lint'
+    env: TOXENV='lint'
 
 install:
   - pip install tox

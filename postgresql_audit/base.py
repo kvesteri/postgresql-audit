@@ -209,6 +209,9 @@ class VersioningManager(object):
             StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
                 target, bind, **kwargs
             )
+        if bind.dialect.server_version_info < (10, 0):
+            operators_template = self.render_tmpl('operators_pre100.sql')
+            StatementExecutor(operators_template)(target, bind, **kwargs)
         operators_template = self.render_tmpl('operators.sql')
         StatementExecutor(operators_template)(target, bind, **kwargs)
 
