@@ -9,57 +9,24 @@ before_script:
   - psql -c 'create database postgresql_audit_test;' -U postgres
 
 language: python
+python:
+  - 2.7
+  - 3.3
+  - 3.4
+  - 3.5
+  - 3.6
+env:
+  global:
+    - TOXENV='py-sqla{0.9,1.0,1.1}'
+  matrix:
+    - POSTGRESQL_VERSION=9.4
+    - POSTGRESQL_VERSION=9.5
+    - POSTGRESQL_VERSION=9.6
 
 matrix:
   include:
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 2.7
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.3
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.4
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.5
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
   - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.4
-  - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.5
-  - python: 3.6
-    env:
-      - TOXENV='py-sqla{0.9,1.0,1.1}' POSTGRESQL_VERSION=9.6
-  - python: 3.6
-    env:
-      - TOXENV='lint'
+    env: TOXENV='lint'
 
 install:
   - pip install tox
