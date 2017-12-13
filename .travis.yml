@@ -22,6 +22,7 @@ env:
     - POSTGRESQL_VERSION=9.4
     - POSTGRESQL_VERSION=9.5
     - POSTGRESQL_VERSION=9.6
+    - POSTGRESQL_VERSION=10
 
 matrix:
   include:
