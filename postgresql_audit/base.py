@@ -274,7 +274,7 @@ class VersioningManager(object):
         values = convert_callables(self.get_transaction_values())
         if values:
             values['native_transaction_id'] = sa.func.txid_current()
-            values['issued_at'] = sa.func.now()
+            values['issued_at'] = sa.text("now() AT TIME ZONE 'UTC'")
             stmt = (
                 table
                 .insert()
