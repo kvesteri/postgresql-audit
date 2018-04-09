@@ -19,7 +19,7 @@ BEGIN
     audit_row.schema_name = TG_TABLE_SCHEMA::text;
     audit_row.table_name = TG_TABLE_NAME::text;
     audit_row.relid = TG_RELID;
-    audit_row.issued_at = statement_timestamp();
+    audit_row.issued_at = statement_timestamp() AT TIME ZONE 'UTC';
     audit_row.native_transaction_id = txid_current();
     audit_row.transaction_id = (
         SELECT id
