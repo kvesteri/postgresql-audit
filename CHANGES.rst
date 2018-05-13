@@ -4,7 +4,7 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
-0.9.3 (2018-xx-xx)
+0.9.3 (2018-05-13)
 ^^^^^^^^^^^^^^^^^^
 
 - Force timestamps to use UTC as timezone (#30, courtesy of quantus)
