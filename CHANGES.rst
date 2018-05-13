@@ -8,6 +8,7 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 ^^^^^^^^^^^^^^^^^^
 
 - Force timestamps to use UTC as timezone (#30, courtesy of quantus)
+- Dropped Python 3.3 support
 
 
 0.9.2 (2017-12-13)
