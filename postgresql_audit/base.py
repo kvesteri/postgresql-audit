@@ -145,7 +145,12 @@ def convert_callables(values):
 class VersioningManager(object):
     _actor_cls = None
 
-    def __init__(self, actor_cls=None, schema_name=None):
+    def __init__(
+        self,
+        actor_cls=None,
+        schema_name=None,
+        use_statement_level_triggers=True
+    ):
         if actor_cls is not None:
             self._actor_cls = actor_cls
         self.values = {}
@@ -170,6 +175,7 @@ class VersioningManager(object):
         self.table_listeners = self.get_table_listeners()
         self.pending_classes = WeakSet()
         self.cached_ddls = {}
+        self.use_statement_level_triggers = use_statement_level_triggers
 
     def get_transaction_values(self):
         return self.values
@@ -215,13 +221,27 @@ class VersioningManager(object):
         operators_template = self.render_tmpl('operators.sql')
         StatementExecutor(operators_template)(target, bind, **kwargs)
 
+    def create_audit_table(self, target, bind, **kwargs):
+        sql = ''
+        if (
+            self.use_statement_level_triggers and
+            bind.dialect.server_version_info >= (10, 0)
+        ):
+            sql += self.render_tmpl('create_activity_stmt_level.sql')
+            sql += self.render_tmpl('audit_table_stmt_level.sql')
+        else:
+            sql += self.render_tmpl('create_activity_row_level.sql')
+            sql += self.render_tmpl('audit_table_row_level.sql')
+        StatementExecutor(sql)(target, bind, **kwargs)
+
     def get_table_listeners(self):
         listeners = {'transaction': []}
+
         listeners['activity'] = [
             ('after_create', sa.schema.DDL(
-                self.render_tmpl('create_activity.sql') +
-                self.render_tmpl('audit_table_func.sql')
+                self.render_tmpl('jsonb_change_key_name.sql')
             )),
+            ('after_create', self.create_audit_table),
             ('after_create', self.create_operators)
         ]
         if self.schema_name is not None:

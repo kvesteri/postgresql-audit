@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.10.0 (2018-07-20)
+^^^^^^^^^^^^^^^^^^^
+
+- Added support for PostgreSQL 10 statement level trigger transition tables. Huge performance boost for heavy inserts.
+
+
 0.9.3 (2018-05-13)
 ^^^^^^^^^^^^^^^^^^
 

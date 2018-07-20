@@ -2,7 +2,6 @@ CREATE OR REPLACE FUNCTION
 ${schema_prefix}audit_table(target_table regclass, ignored_cols text[])
 RETURNS void AS $$
 DECLARE
-    stm_targets text = 'INSERT OR UPDATE OR DELETE OR TRUNCATE';
     query text;
     excluded_columns_text text = '';
 BEGIN
@@ -20,7 +19,6 @@ BEGIN
              ');';
     RAISE NOTICE '%', query;
     EXECUTE query;
-    stm_targets = 'TRUNCATE';
 END;
 $$
 language 'plpgsql';
