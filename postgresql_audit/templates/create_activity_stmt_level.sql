@@ -21,38 +21,33 @@ BEGIN
     IF (TG_OP = 'UPDATE') THEN
         INSERT INTO ${schema_prefix}activity
         SELECT
-            *
+            nextval('${schema_prefix}activity_id_seq') as id,
+            TG_TABLE_SCHEMA::text AS schema_name,
+            TG_TABLE_NAME::text AS table_name,
+            TG_RELID AS relid,
+            statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
+            txid_current() AS native_transaction_id,
+            LOWER(TG_OP) AS verb,
+            old_data - excluded_cols AS old_data,
+            new_data - old_data - excluded_cols AS changed_data,
+            _transaction_id AS transaction_id
         FROM (
-            SELECT
-                sub.id,
-                sub.schema_name,
-                sub.table_name,
-                sub.relid,
-                sub.issued_at,
-                sub.native_transaction_id,
-                sub.verb,
-                old_data - excluded_cols AS old_data,
-                (
-                    SELECT row_to_json(new_table.*)
-                    FROM new_table
-                    LIMIT 1 OFFSET row_number - 1
-                )::jsonb - old_data - excluded_cols AS changed_data,
-                transaction_id
+            SELECT *
             FROM (
                 SELECT
-                    nextval('${schema_prefix}activity_id_seq') as id,
-                    TG_TABLE_SCHEMA::text AS schema_name,
-                    TG_TABLE_NAME::text AS table_name,
-                    TG_RELID AS relid,
-                    statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
-                    txid_current() AS native_transaction_id,
-                    LOWER(TG_OP) AS verb,
                     row_to_json(old_table.*)::jsonb AS old_data,
-                    row_number() OVER (),
-                    _transaction_id AS transaction_id
+                    row_number() OVER ()
                 FROM old_table
-            ) AS sub
-        ) sub2 WHERE changed_data != '{}'::jsonb;
+            ) AS old_table
+            JOIN (
+                SELECT
+                    row_to_json(new_table.*)::jsonb AS new_data,
+                    row_number() OVER ()
+                FROM new_table
+            ) AS new_table
+            USING(row_number)
+        ) as sub
+        WHERE new_data - old_data - excluded_cols != '{}'::jsonb;
     ELSIF (TG_OP = 'INSERT') THEN
         INSERT INTO ${schema_prefix}activity
         SELECT
