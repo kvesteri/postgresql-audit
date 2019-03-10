@@ -1,5 +1,6 @@
 -- http://coussej.github.io/2016/05/24/A-Minus-Operator-For-PostgreSQLs-JSONB/
-CREATE OR REPLACE FUNCTION jsonb_subtract(arg1 jsonb, arg2 jsonb)
+DROP FUNCTION IF EXISTS jsonb_subtract(jsonb,jsonb) CASCADE;
+CREATE FUNCTION jsonb_subtract(arg1 jsonb, arg2 jsonb)
 RETURNS jsonb AS $$
 SELECT
   COALESCE(json_object_agg(key, value), '{}')::jsonb
