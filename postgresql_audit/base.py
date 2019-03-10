@@ -182,9 +182,13 @@ class VersioningManager(object):
 
     @contextmanager
     def disable(self, session):
-        session.execute("SET LOCAL postgresql_audit.enable_versioning = 'false'")
+        session.execute(
+            "SET LOCAL postgresql_audit.enable_versioning = 'false'"
+        )
         yield
-        session.execute("SET LOCAL postgresql_audit.enable_versioning = 'true'")
+        session.execute(
+            "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+        )
 
     def render_tmpl(self, tmpl_name):
         file_contents = read_file(
@@ -208,6 +212,10 @@ class VersioningManager(object):
     def create_operators(self, target, bind, **kwargs):
         if bind.dialect.server_version_info < (9, 5, 0):
             StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
+                target, bind, **kwargs
+            )
+        if bind.dialect.server_version_info < (9, 6, 0):
+            StatementExecutor(self.render_tmpl('operators_pre96.sql'))(
                 target, bind, **kwargs
             )
         if bind.dialect.server_version_info < (10, 0):
