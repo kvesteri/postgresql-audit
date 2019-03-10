@@ -12,8 +12,7 @@ BEGIN
     END IF;
     query = 'CREATE TRIGGER audit_trigger_row AFTER INSERT OR UPDATE OR DELETE ON ' ||
              target_table || ' FOR EACH ROW ' ||
-             E'WHEN (current_setting(\'session_replication_role\') ' ||
-             E'<> \'local\')' ||
+             E'WHEN (coalesce(current_setting(\'postgresql_audit.enable_versioning\', \'t\'), \'true\')::bool) ' ||
              ' EXECUTE PROCEDURE ${schema_prefix}create_activity(' ||
              excluded_columns_text ||
              ');';

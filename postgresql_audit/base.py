@@ -182,14 +182,9 @@ class VersioningManager(object):
 
     @contextmanager
     def disable(self, session):
-        current_setting = session.execute(
-            "SELECT current_setting('session_replication_role')"
-        ).fetchone().current_setting
-        session.execute('SET LOCAL session_replication_role = "local"')
+        session.execute("SET LOCAL postgresql_audit.enable_versioning = 'false'")
         yield
-        session.execute('SET LOCAL session_replication_role = "{}"'.format(
-            current_setting,
-        ))
+        session.execute("SET LOCAL postgresql_audit.enable_versioning = 'true'")
 
     def render_tmpl(self, tmpl_name):
         file_contents = read_file(

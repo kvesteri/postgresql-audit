@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.11.0 (2019-03-10)
+^^^^^^^^^^^^^^^^^^^
+
+- Changed the use of session_replication_role to postgresql_audit.enable_versioning parameter. This change was made in order to allow temporarly disable versioning in environments such as Heroku where changing session_replication_role configuration setting even on transaction level is impossible.
+
+
 0.10.0 (2018-07-20)
 ^^^^^^^^^^^^^^^^^^^
 
