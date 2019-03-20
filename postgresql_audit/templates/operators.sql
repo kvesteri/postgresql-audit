@@ -17,3 +17,13 @@ CREATE OPERATOR - (
   RIGHTARG = jsonb,
   PROCEDURE = jsonb_subtract
 );
+
+
+DROP FUNCTION IF EXISTS get_setting(text, text) CASCADE;
+CREATE FUNCTION get_setting(setting text, default_value text)
+RETURNS text AS $$
+    SELECT coalesce(
+        nullif(current_setting(setting, 't'), ''),
+        default_value
+    );
+$$ LANGUAGE SQL;

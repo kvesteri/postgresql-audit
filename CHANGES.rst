@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.11.1 (2019-03-20)
+^^^^^^^^^^^^^^^^^^^
+
+- Fixed postgresql_audit.enable_versioning parameter to work in situations where the transaction is rolled back and this parameter is set by the rollback operation as an empty string.
+
+
 0.11.0 (2019-03-10)
 ^^^^^^^^^^^^^^^^^^^
 
