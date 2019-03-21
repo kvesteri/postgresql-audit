@@ -24,6 +24,21 @@ class TestActivityCreation(object):
         assert activity['native_transaction_id'] > 0
         assert activity['verb'] == 'insert'
 
+    def test_commit_after_disable_and_rollback(
+        self,
+        activity_cls,
+        user_class,
+        versioning_manager,
+        session
+    ):
+        with versioning_manager.disable(session):
+            user = user_class(name='John')
+            session.add(user)
+            session.flush()
+            session.rollback()
+            session.add(user)
+            session.commit()
+
     def test_operation_after_commit(
         self,
         activity_cls,
