@@ -41,6 +41,7 @@ def engine(dns):
 @pytest.yield_fixture
 def connection(engine):
     conn = engine.connect()
+    conn.execute('CREATE EXTENSION IF NOT EXISTS btree_gist')
     yield conn
     conn.close()
 

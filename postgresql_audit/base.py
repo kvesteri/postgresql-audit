@@ -2,11 +2,18 @@ import os
 import string
 import warnings
 from contextlib import contextmanager
+from datetime import timedelta
 from weakref import WeakSet
 
 import sqlalchemy as sa
 from sqlalchemy import orm
-from sqlalchemy.dialects.postgresql import array, INET, JSONB
+from sqlalchemy.dialects.postgresql import (
+    array,
+    ExcludeConstraint,
+    insert,
+    INET,
+    JSONB
+)
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -64,11 +71,27 @@ def assign_actor(base, cls, actor_cls):
 def transaction_base(Base, schema):
     class Transaction(Base):
         __abstract__ = True
-        __table_args__ = {'schema': schema}
         id = sa.Column(sa.BigInteger, primary_key=True)
-        native_transaction_id = sa.Column(sa.BigInteger, index=True)
+        native_transaction_id = sa.Column(sa.BigInteger)
         issued_at = sa.Column(sa.DateTime)
         client_addr = sa.Column(INET)
+
+        @declared_attr
+        def __table_args__(cls):
+            return (
+                ExcludeConstraint(
+                    (cls.native_transaction_id, '='),
+                    (
+                        sa.func.tsrange(
+                            cls.issued_at - sa.text("INTERVAL '1 hour'"),
+                            cls.issued_at,
+                        ),
+                        '&&'
+                    ),
+                    name='transaction_unique_native_tx_id'
+                ),
+                {'schema': schema}
+            )
 
         def __repr__(self):
             return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
@@ -90,7 +113,7 @@ def activity_base(Base, schema, transaction_cls):
         table_name = sa.Column(sa.Text)
         relid = sa.Column(sa.Integer)
         issued_at = sa.Column(sa.DateTime)
-        native_transaction_id = sa.Column(sa.BigInteger)
+        native_transaction_id = sa.Column(sa.BigInteger, index=True)
         verb = sa.Column(sa.Text)
         old_data = sa.Column(JSONB, default={}, server_default='{}')
         changed_data = sa.Column(JSONB, default={}, server_default='{}')
@@ -299,9 +322,11 @@ class VersioningManager(object):
             values['native_transaction_id'] = sa.func.txid_current()
             values['issued_at'] = sa.text("now() AT TIME ZONE 'UTC'")
             stmt = (
-                table
-                .insert()
+                insert(table)
                 .values(**values)
+                .on_conflict_do_nothing(
+                    constraint='transaction_unique_native_tx_id'
+                )
             )
             session.execute(stmt)
 
