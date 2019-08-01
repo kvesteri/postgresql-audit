@@ -176,6 +176,24 @@ class TestActivityCreation(object):
         session.commit()
         assert session.query(activity_cls).count() == 1
 
+    def test_multiple_flush_within_same_transaction(
+        self,
+        activity_cls,
+        user_class,
+        session,
+        versioning_manager
+    ):
+        versioning_manager.values = {'client_addr': '127.0.0.1'}
+        user = user_class(name='Jack')
+        session.add(user)
+        session.flush()
+        user = user_class(name='John')
+        session.add(user)
+        session.commit()
+        activities = session.query(activity_cls).all()
+        assert activities[0].transaction == activities[1].transaction
+        assert session.query(versioning_manager.transaction_cls).count() == 1
+
 
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestColumnExclusion(object):
