@@ -2,7 +2,6 @@ import os
 import string
 import warnings
 from contextlib import contextmanager
-from datetime import timedelta
 from weakref import WeakSet
 
 import sqlalchemy as sa
