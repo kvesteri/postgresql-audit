@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.12.0 (2019-10-15)
+^^^^^^^^^^^^^^^^^^^
+
+- Create only single transaction per database transaction (#37)
+
+
 0.11.1 (2019-03-20)
 ^^^^^^^^^^^^^^^^^^^
 
