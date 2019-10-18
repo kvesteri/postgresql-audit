@@ -9,8 +9,8 @@ from sqlalchemy import orm
 from sqlalchemy.dialects.postgresql import (
     array,
     ExcludeConstraint,
-    insert,
     INET,
+    insert,
     JSONB
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
