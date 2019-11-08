@@ -189,8 +189,9 @@ class TestActivityCreation(object):
                 session.add(user)
                 session.commit()
                 raise Exception("I should brake the activity")
-        except:
-            # ignore the raised exception, we just what to make the activity is back
+        except Exception:
+            # ignore the raised exception
+            # we just what to make the activity is back
             pass
 
         assert session.query(activity_cls).count() == 0
