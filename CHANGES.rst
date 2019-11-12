@@ -4,10 +4,16 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.12.2 (2019-11-12)
+^^^^^^^^^^^^^^^^^^^
+
+- Made disable context manager use a finally block (#42, courtesy of ElPicador)
+
+
 0.12.1 (2019-10-18)
 ^^^^^^^^^^^^^^^^^^^
 
-- Add commits missing from 0.12.0
+- Added commits missing from 0.12.0
 
 
 0.12.0 (2019-10-15)
