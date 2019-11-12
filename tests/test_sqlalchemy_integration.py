@@ -176,6 +176,31 @@ class TestActivityCreation(object):
         session.commit()
         assert session.query(activity_cls).count() == 1
 
+    def test_disable_contextmanager_with_exception(
+        self,
+        activity_cls,
+        user_class,
+        session,
+        versioning_manager
+    ):
+        try:
+            with versioning_manager.disable(session):
+                user = user_class(name='Jack')
+                session.add(user)
+                session.commit()
+                raise Exception("I should brake the activity")
+        except Exception:
+            # ignore the raised exception
+            # we just what to make the activity is back
+            pass
+
+        assert session.query(activity_cls).count() == 0
+
+        user = user_class(name='Jack')
+        session.add(user)
+        session.commit()
+        assert session.query(activity_cls).count() == 1
+
     def test_multiple_flush_within_same_transaction(
         self,
         activity_cls,

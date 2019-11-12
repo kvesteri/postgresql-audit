@@ -207,10 +207,12 @@ class VersioningManager(object):
         session.execute(
             "SET LOCAL postgresql_audit.enable_versioning = 'false'"
         )
-        yield
-        session.execute(
-            "SET LOCAL postgresql_audit.enable_versioning = 'true'"
-        )
+        try:
+            yield
+        finally:
+            session.execute(
+                "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+            )
 
     def render_tmpl(self, tmpl_name):
         file_contents = read_file(
