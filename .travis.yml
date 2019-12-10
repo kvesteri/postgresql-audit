@@ -17,10 +17,10 @@ before_script:
 language: python
 python:
   - 2.7
-  - 3.4
   - 3.5
   - 3.6
   - 3.7
+  - 3.8
 env:
   global:
     - TOXENV='py-sqla{1.1,1.2,1.3}'
@@ -30,6 +30,7 @@ env:
     - POSTGRESQL_VERSION=9.6
     - POSTGRESQL_VERSION=10
     - POSTGRESQL_VERSION=11
+    - POSTGRESQL_VERSION=12
 
 matrix:
   include:
