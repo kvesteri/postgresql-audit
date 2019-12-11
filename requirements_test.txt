@@ -8,4 +8,4 @@ itsdangerous==0.24
 MarkupSafe==0.23
 psycopg2>=2.4.6
 pytest>=2.3.5,<3.3.0
-Werkzeug==0.10.1
+Werkzeug==0.15.3
