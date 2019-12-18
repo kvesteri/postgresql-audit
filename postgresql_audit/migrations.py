@@ -1,6 +1,8 @@
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from postgresql_audit.utils import render_tmpl, create_audit_table, create_operators, \
+    build_register_table_query
 from .expressions import jsonb_change_key_name
 
 
@@ -15,6 +17,27 @@ def get_activity_table(schema=None):
         sa.Column('changed_data', JSONB),
         schema=schema,
     )
+
+def init_activity_table_triggers(conn, schema_name = None, use_statement_level_triggers=True):
+    conn.execute(render_tmpl('jsonb_change_key_name.sql', schema_name))
+    create_audit_table(None, conn, schema_name, use_statement_level_triggers)
+    create_operators(None, conn, schema_name)
+
+    if schema_name:
+        conn.execute(render_tmpl('create_schema.sql', schema_name))
+
+def rollback_create_transaction(conn, schema_name=None):
+    if schema_name:
+        conn.execute(render_tmpl('drop_schema.sql', schema_name))
+
+def init_before_create_transaction(conn, schema_name=None):
+    if schema_name:
+        conn.execute(render_tmpl('create_schema.sql', schema_name))
+
+
+def register_table(conn, table_name, exclude_columns, schema_name=None):
+    sql = build_register_table_query(schema_name, table_name, exclude_columns)
+    conn.execute(sql)
 
 
 def alter_column(conn, table, column_name, func, schema=None):
