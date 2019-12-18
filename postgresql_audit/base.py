@@ -1,7 +1,6 @@
-import os
-import string
 import warnings
 from contextlib import contextmanager
+from functools import partial
 from weakref import WeakSet
 
 import sqlalchemy as sa
@@ -18,7 +17,9 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+from postgresql_audit.utils import render_tmpl, StatementExecutor, create_audit_table, create_operators, \
+    build_register_table_query
+
 cached_statements = {}
 
 
@@ -28,23 +29,6 @@ class ImproperlyConfigured(Exception):
 
 class ClassNotVersioned(Exception):
     pass
-
-
-class StatementExecutor(object):
-    def __init__(self, stmt):
-        self.stmt = stmt
-
-    def __call__(self, target, bind, **kwargs):
-        tx = bind.begin()
-        bind.execute(self.stmt)
-        tx.commit()
-
-
-def read_file(file_):
-    with open(os.path.join(HERE, file_)) as f:
-        s = f.read()
-    return s
-
 
 def assign_actor(base, cls, actor_cls):
     if hasattr(cls, 'actor_id'):
@@ -194,10 +178,11 @@ class VersioningManager(object):
             ),
         )
         self.schema_name = schema_name
+        self.use_statement_level_triggers = use_statement_level_triggers
         self.table_listeners = self.get_table_listeners()
         self.pending_classes = WeakSet()
         self.cached_ddls = {}
-        self.use_statement_level_triggers = use_statement_level_triggers
+
 
     def get_transaction_values(self):
         return self.values
@@ -214,70 +199,28 @@ class VersioningManager(object):
                 "SET LOCAL postgresql_audit.enable_versioning = 'true'"
             )
 
-    def render_tmpl(self, tmpl_name):
-        file_contents = read_file(
-            'templates/{}'.format(tmpl_name)
-        ).replace('%', '%%').replace('$$', '$$$$')
-        tmpl = string.Template(file_contents)
-        context = dict(schema_name=self.schema_name)
-
-        if self.schema_name is None:
-            context['schema_prefix'] = ''
-            context['revoke_cmd'] = ''
-        else:
-            context['schema_prefix'] = '{}.'.format(self.schema_name)
-            context['revoke_cmd'] = (
-                'REVOKE ALL ON {schema_prefix}activity FROM public;'
-            ).format(**context)
-
-        temp = tmpl.substitute(**context)
-        return temp
-
-    def create_operators(self, target, bind, **kwargs):
-        if bind.dialect.server_version_info < (9, 5, 0):
-            StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (9, 6, 0):
-            StatementExecutor(self.render_tmpl('operators_pre96.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (10, 0):
-            operators_template = self.render_tmpl('operators_pre100.sql')
-            StatementExecutor(operators_template)(target, bind, **kwargs)
-        operators_template = self.render_tmpl('operators.sql')
-        StatementExecutor(operators_template)(target, bind, **kwargs)
-
-    def create_audit_table(self, target, bind, **kwargs):
-        sql = ''
-        if (
-            self.use_statement_level_triggers and
-            bind.dialect.server_version_info >= (10, 0)
-        ):
-            sql += self.render_tmpl('create_activity_stmt_level.sql')
-            sql += self.render_tmpl('audit_table_stmt_level.sql')
-        else:
-            sql += self.render_tmpl('create_activity_row_level.sql')
-            sql += self.render_tmpl('audit_table_row_level.sql')
-        StatementExecutor(sql)(target, bind, **kwargs)
-
     def get_table_listeners(self):
         listeners = {'transaction': []}
 
         listeners['activity'] = [
             ('after_create', sa.schema.DDL(
-                self.render_tmpl('jsonb_change_key_name.sql')
+                render_tmpl('jsonb_change_key_name.sql', self.schema_name)
             )),
-            ('after_create', self.create_audit_table),
-            ('after_create', self.create_operators)
+            ('after_create', partial(
+                    create_audit_table,
+                    schema_name=self.schema_name,
+                    use_statement_level_triggers=self.use_statement_level_triggers
+                )
+             ),
+            ('after_create', partial(create_operators, schema_name=self.schema_name))
         ]
         if self.schema_name is not None:
             listeners['transaction'] = [
                 ('before_create', sa.schema.DDL(
-                    self.render_tmpl('create_schema.sql')
+                    render_tmpl('create_schema.sql', self.schema_name)
                 )),
                 ('after_drop', sa.schema.DDL(
-                    self.render_tmpl('drop_schema.sql')
+                    render_tmpl('drop_schema.sql', self.schema_name)
                 )),
             ]
         return listeners
@@ -294,12 +237,7 @@ class VersioningManager(object):
                         )
                     )
             args.append(array(exclude_columns))
-
-        if self.schema_name is None:
-            func = sa.func.audit_table
-        else:
-            func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
-        query = sa.select([func(*args)])
+        query = build_register_table_query(self.schema_name, *args)
         if query not in cached_statements:
             cached_statements[query] = StatementExecutor(query)
         listener = (table, 'after_create', cached_statements[query])
