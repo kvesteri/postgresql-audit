@@ -36,7 +36,7 @@ def compare_timestamp_schema(autogen_context, upgrade_ops, schemas):
         else:
             if f"{schema_prefix}audit_table" in (x[1] for x in a):
                 upgrade_ops.ops.append(
-                    RemoveActivityTableTriggersOp(schema=sch)
+                    RemoveActivityTableTriggersOp(False, schema=sch)
                 )
 
 
@@ -45,7 +45,6 @@ def compare_timestamp_table(autogen_context, modify_ops, schemaname, tablename, 
     if metadata_table is None:
         return
     meta_info = metadata_table.info or {}
-    # TODO: Query triggers on the table
     schema_name = autogen_context.dialect.default_schema_name if schemaname is None else schemaname
 
     triggers = [row for row in autogen_context.connection.execute(f"""
