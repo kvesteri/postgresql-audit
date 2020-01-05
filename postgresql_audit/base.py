@@ -207,9 +207,9 @@ class SessionManager(object):
 
     def is_modified(self, obj_or_session):
         if hasattr(obj_or_session, '__mapper__'):
-            if not hasattr(obj_or_session, '__versioned__'):
+            if not (hasattr(obj_or_session, '__versioned__') or getattr(obj_or_session, '__table_args__', {}).get("versioned", None)):
                 raise ClassNotVersioned(obj_or_session.__class__.__name__)
-            excluded = obj_or_session.__versioned__.get('exclude', [])
+            excluded = getattr(obj_or_session, "__versioned__", obj_or_session.__table_args__["versioned"]).get('exclude', [])
             return bool(
                 set([
                     column.name
@@ -220,7 +220,7 @@ class SessionManager(object):
             return any(
                 self.is_modified(entity) or entity in obj_or_session.deleted
                 for entity in obj_or_session
-                if hasattr(entity, '__versioned__')
+                if hasattr(entity, '__versioned__') or getattr(obj_or_session, '__table_args__', {}).get("versioned", None)
             )
 
     def before_flush(self, session, flush_context, instances):
