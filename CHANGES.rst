@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.12.3 (2020-01-16)
+^^^^^^^^^^^^^^^^^^^
+
+- Added nesting of activity values (#48, courtesy of tvuotila)
+
+
 0.12.2 (2019-11-12)
 ^^^^^^^^^^^^^^^^^^^
 
