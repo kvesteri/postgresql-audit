@@ -56,13 +56,27 @@ def context_available():
     )
 
 
+def merge_dicts(a, b):
+    c = copy(a)
+    c.update(b)
+    return c
+
+
 @contextmanager
 def activity_values(**values):
     if not context_available():
         return
+    if hasattr(g, 'activity_values'):
+        previous_value = g.activity_values
+        values = merge_dicts(previous_value, values)
+    else:
+        previous_value = None
     g.activity_values = values
     yield
-    del g.activity_values
+    if previous_value is None:
+        del g.activity_values
+    else:
+        g.activity_values = previous_value
 
 
 versioning_manager = VersioningManager()

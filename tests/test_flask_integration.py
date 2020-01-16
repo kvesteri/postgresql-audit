@@ -202,6 +202,53 @@ class TestFlaskIntegration(object):
         assert activities[0].transaction.actor_id == 4
         assert activities[0].transaction.client_addr == '123.123.123.123'
 
+    def test_view_with_nested_overriden_activity_values(
+        self,
+        db,
+        app,
+        client,
+        user,
+        article_class,
+        versioning_manager
+    ):
+        def create_article():
+            article = article_class()
+            article.name = u'Some article'
+            db.session.add(article)
+            db.session.commit()
+
+        @app.route('/activity-values')
+        def test_activity_values():
+            args1 = {'actor_id': 4}
+            args2 = {'client_addr': '123.123.123.123'}
+            create_article()
+            with activity_values(**args1):
+                create_article()
+                with activity_values(**args2):
+                    create_article()
+                create_article()
+            create_article()
+            return ''
+
+        login(client, user)
+        client.get(url_for('.test_activity_values'))
+
+        activities = (
+            db.session.query(versioning_manager.activity_cls)
+            .order_by(versioning_manager.activity_cls.id.desc()).all()
+        )
+        assert len(activities) == 6
+        assert activities[0].transaction.actor_id != 4
+        assert activities[0].transaction.client_addr != '123.123.123.123'
+        assert activities[1].transaction.actor_id == 4
+        assert activities[1].transaction.client_addr != '123.123.123.123'
+        assert activities[2].transaction.actor_id == 4
+        assert activities[2].transaction.client_addr == '123.123.123.123'
+        assert activities[3].transaction.actor_id == 4
+        assert activities[3].transaction.client_addr != '123.123.123.123'
+        assert activities[4].transaction.actor_id != 4
+        assert activities[4].transaction.client_addr != '123.123.123.123'
+
     def test_updating_excluded_attr_does_not_create_transaction(
         self,
         app,
