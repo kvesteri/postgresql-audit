@@ -54,9 +54,10 @@ def register_for_version_tracking(operations, operation):
 
 @Operations.implementation_for(DeregisterTableForVersionTrackingOp)
 def deregister_for_version_tracking(operations, operation):
-    operations.execute(f"drop trigger audit_trigger_insert on {operation.tablename} ")
-    operations.execute(f"drop trigger audit_trigger_update on {operation.tablename} ")
-    operations.execute(f"drop trigger audit_trigger_delete on {operation.tablename} ")
+    operations.execute(f"drop trigger if exists audit_trigger_insert on {operation.tablename} ")
+    operations.execute(f"drop trigger if exists audit_trigger_update on {operation.tablename} ")
+    operations.execute(f"drop trigger if exists audit_trigger_delete on {operation.tablename} ")
+    operations.execute(f"drop trigger if exists audit_trigger_row on {operation.tablename} ")
 
 
 @renderers.dispatch_for(RegisterTableForVersionTrackingOp)
