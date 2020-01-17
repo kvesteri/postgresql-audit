@@ -30,7 +30,7 @@ def compare_timestamp_schema(autogen_context, upgrade_ops, schemas):
         a = list(a) if a else []
         if should_track_versions:
             if f"{schema_prefix}audit_table" not in (x[1] for x in a):
-                upgrade_ops.ops.append(
+                upgrade_ops.ops.insert(0,
                     InitActivityTableTriggersOp(False, schema=sch)
                 )
         else:
