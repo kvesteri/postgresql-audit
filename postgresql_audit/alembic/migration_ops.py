@@ -45,8 +45,7 @@ class RemoveColumnFromRemoveActivityOp(MigrateOperation):
 
 @Operations.implementation_for(AddColumnToActivityOp)
 def add_column_to_activity(operations, operation):
-    conn = operations.connection
-    add_column(conn, operation.table_name, operation.column_name, default_value=operation.default_value, schema=operation.schema)
+    add_column(operations, operation.table_name, operation.column_name, default_value=operation.default_value, schema=operation.schema)
 
 
 @Operations.implementation_for(RemoveColumnFromRemoveActivityOp)
