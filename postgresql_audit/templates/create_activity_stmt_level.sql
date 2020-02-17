@@ -59,7 +59,7 @@ BEGIN
             txid_current() AS native_transaction_id,
             LOWER(TG_OP) AS verb,
             '{}'::jsonb AS old_data,
-            row_to_json(new_table.*)::jsonb - excluded_cols,
+            row_to_json(new_table.*)::jsonb - excluded_cols AS changed_data,
             _transaction_id AS transaction_id
         FROM new_table;
     ELSEIF TG_OP = 'DELETE' THEN
