@@ -4,6 +4,12 @@ Changelog
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
 
+0.12.4 (2020-02-18)
+^^^^^^^^^^^^^^^^^^^
+
+- Specify the column names when inserting new audit rows (#49, courtesy of quantus)
+
+
 0.12.3 (2020-01-16)
 ^^^^^^^^^^^^^^^^^^^
 
