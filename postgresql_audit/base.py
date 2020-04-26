@@ -1,4 +1,5 @@
 import warnings
+from collections import Sequence
 from contextlib import contextmanager
 from functools import partial
 from weakref import WeakSet
@@ -207,9 +208,10 @@ class SessionManager(object):
 
     def is_modified(self, obj_or_session):
         if hasattr(obj_or_session, '__mapper__'):
-            if not (hasattr(obj_or_session, '__versioned__') or getattr(obj_or_session, '__table_args__', {}).get("versioned", None)):
+            version_info = self.__get_versioned_info(obj_or_session)
+            if not version_info:
                 raise ClassNotVersioned(obj_or_session.__class__.__name__)
-            excluded = getattr(obj_or_session, "__versioned__", obj_or_session.__table_args__["versioned"]).get('exclude', [])
+            excluded = version_info.get('exclude', [])
             return bool(
                 set([
                     column.name
@@ -220,8 +222,21 @@ class SessionManager(object):
             return any(
                 self.is_modified(entity) or entity in obj_or_session.deleted
                 for entity in obj_or_session
-                if hasattr(entity, '__versioned__') or getattr(obj_or_session, '__table_args__', {}).get("versioned", None)
+                if self.__get_versioned_info(entity)
             )
+
+    def __get_versioned_info(self, entity):
+        v_args = getattr(entity, '__versioned__', None)
+        if v_args:
+            return v_args
+        table_args = getattr(entity, '__table_args__', None)
+        if not table_args:
+            return None
+        if isinstance(table_args, Sequence):
+            table_args = next((x for x in iter(table_args) if isinstance(x, dict)), None)
+        if not table_args:
+            return None
+        return table_args.get("info", {}).get("versioned", None)
 
     def before_flush(self, session, flush_context, instances):
         if session.transaction in self._marked_transactions:
