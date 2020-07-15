@@ -143,7 +143,7 @@ Finding history of specific record
 ----------------------------------
 
 In this example we want to find all changes made to article with id=3. The query
-is a bit complex since we have to check `old_data` and `changed_data separately. Luckily
+is a bit complex since we have to check `old_data` and `changed_data` separately. Luckily
 the Activity model has a hybrid_property_ called `data` which is a combination of these two.
 Hence you can get the desired activities as follows:
 
