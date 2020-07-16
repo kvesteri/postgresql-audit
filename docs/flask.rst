@@ -123,4 +123,4 @@ Thus, in case the flask app runs after an http server (e.g nginx), and
 depending on configuration, flask may receive no IP. To overcome this, it is
 advised to follow `flask documentation on proxy setups`__.
 
-__ http://flask.pocoo.org/docs/0.10/deploying/wsgi-standalone/#proxy-setups
+__ https://flask.palletsprojects.com/en/1.1.x/deploying/wsgi-standalone/#proxy-setups
