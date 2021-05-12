@@ -58,6 +58,7 @@ def app(dns, db, login_manager, user_class, article_class):
 
     application = Flask(__name__)
     application.config['SQLALCHEMY_DATABASE_URI'] = dns
+    application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     application.secret_key = 'secret'
     application.debug = True
     db.init_app(application)
