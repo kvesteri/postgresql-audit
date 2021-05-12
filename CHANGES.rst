@@ -3,6 +3,10 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+0.13.0 (not yet released)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **BREAKING CHANGE**: Drop Python 2.7 support. Python 2.7 reached the end of its life on January 1st, 2020.
 
 0.12.4 (2020-02-18)
 ^^^^^^^^^^^^^^^^^^^
