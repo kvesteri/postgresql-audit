@@ -40,6 +40,7 @@ setup(
         'SQLAlchemy>=0.9.4',
         'SQLAlchemy-Utils>=0.29.8'
     ],
+    python_requires='>=3.6',
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
