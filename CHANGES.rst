@@ -3,8 +3,8 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-0.13.0 (not yet released)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+0.13.0 (2021-05-16)
+^^^^^^^^^^^^^^^^^^^
 
 - Add SQLAlchemy 1.4 support
 - Add Python 3.9 support
