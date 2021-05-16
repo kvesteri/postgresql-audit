@@ -1,6 +1,6 @@
 flake8>=2.4.0
 Flask-Login==0.2.11
-Flask-SQLAlchemy==2.0
+Flask-SQLAlchemy==2.5.1
 Flask==0.10.1
 flexmock==0.9.7
 isort>=4.2.2

@@ -22,7 +22,7 @@ def db_name():
 
 @pytest.fixture
 def dns(db_user, db_name):
-    return 'postgres://{}@localhost/{}'.format(db_user, db_name)
+    return 'postgresql://{}@localhost/{}'.format(db_user, db_name)
 
 
 @pytest.fixture
