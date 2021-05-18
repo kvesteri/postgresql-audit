@@ -1,7 +1,7 @@
-import os
-import string
 import warnings
+from collections import Sequence
 from contextlib import contextmanager
+from functools import partial
 from weakref import WeakSet
 
 import sqlalchemy as sa
@@ -18,7 +18,9 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+from postgresql_audit.utils import render_tmpl, StatementExecutor, create_audit_table, create_operators, \
+    build_register_table_query
+
 cached_statements = {}
 
 
@@ -28,23 +30,6 @@ class ImproperlyConfigured(Exception):
 
 class ClassNotVersioned(Exception):
     pass
-
-
-class StatementExecutor(object):
-    def __init__(self, stmt):
-        self.stmt = stmt
-
-    def __call__(self, target, bind, **kwargs):
-        tx = bind.begin()
-        bind.execute(self.stmt)
-        tx.commit()
-
-
-def read_file(file_):
-    with open(os.path.join(HERE, file_)) as f:
-        s = f.read()
-    return s
-
 
 def assign_actor(base, cls, actor_cls):
     if hasattr(cls, 'actor_id'):
@@ -164,147 +149,21 @@ def convert_callables(values):
     }
 
 
-class VersioningManager(object):
-    _actor_cls = None
-
-    def __init__(
-        self,
-        actor_cls=None,
-        schema_name=None,
-        use_statement_level_triggers=True
-    ):
-        if actor_cls is not None:
-            self._actor_cls = actor_cls
-        self.values = {}
+class SessionManager(object):
+    def __init__(self, transaction_cls, values=None):
+        self.transaction_cls = transaction_cls
+        self.values = values or {}
+        self._marked_transactions = set()
         self.listeners = (
-            (
-                orm.mapper,
-                'instrument_class',
-                self.instrument_versioned_classes
-            ),
-            (
-                orm.mapper,
-                'after_configured',
-                self.configure_versioned_classes
-            ),
             (
                 orm.session.Session,
                 'before_flush',
-                self.receive_before_flush,
+                self.before_flush,
             ),
         )
-        self.schema_name = schema_name
-        self.table_listeners = self.get_table_listeners()
-        self.pending_classes = WeakSet()
-        self.cached_ddls = {}
-        self.use_statement_level_triggers = use_statement_level_triggers
 
     def get_transaction_values(self):
         return self.values
-
-    @contextmanager
-    def disable(self, session):
-        session.execute(
-            "SET LOCAL postgresql_audit.enable_versioning = 'false'"
-        )
-        try:
-            yield
-        finally:
-            session.execute(
-                "SET LOCAL postgresql_audit.enable_versioning = 'true'"
-            )
-
-    def render_tmpl(self, tmpl_name):
-        file_contents = read_file(
-            'templates/{}'.format(tmpl_name)
-        ).replace('%', '%%').replace('$$', '$$$$')
-        tmpl = string.Template(file_contents)
-        context = dict(schema_name=self.schema_name)
-
-        if self.schema_name is None:
-            context['schema_prefix'] = ''
-            context['revoke_cmd'] = ''
-        else:
-            context['schema_prefix'] = '{}.'.format(self.schema_name)
-            context['revoke_cmd'] = (
-                'REVOKE ALL ON {schema_prefix}activity FROM public;'
-            ).format(**context)
-
-        temp = tmpl.substitute(**context)
-        return temp
-
-    def create_operators(self, target, bind, **kwargs):
-        if bind.dialect.server_version_info < (9, 5, 0):
-            StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (9, 6, 0):
-            StatementExecutor(self.render_tmpl('operators_pre96.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (10, 0):
-            operators_template = self.render_tmpl('operators_pre100.sql')
-            StatementExecutor(operators_template)(target, bind, **kwargs)
-        operators_template = self.render_tmpl('operators.sql')
-        StatementExecutor(operators_template)(target, bind, **kwargs)
-
-    def create_audit_table(self, target, bind, **kwargs):
-        sql = ''
-        if (
-            self.use_statement_level_triggers and
-            bind.dialect.server_version_info >= (10, 0)
-        ):
-            sql += self.render_tmpl('create_activity_stmt_level.sql')
-            sql += self.render_tmpl('audit_table_stmt_level.sql')
-        else:
-            sql += self.render_tmpl('create_activity_row_level.sql')
-            sql += self.render_tmpl('audit_table_row_level.sql')
-        StatementExecutor(sql)(target, bind, **kwargs)
-
-    def get_table_listeners(self):
-        listeners = {'transaction': []}
-
-        listeners['activity'] = [
-            ('after_create', sa.schema.DDL(
-                self.render_tmpl('jsonb_change_key_name.sql')
-            )),
-            ('after_create', self.create_audit_table),
-            ('after_create', self.create_operators)
-        ]
-        if self.schema_name is not None:
-            listeners['transaction'] = [
-                ('before_create', sa.schema.DDL(
-                    self.render_tmpl('create_schema.sql')
-                )),
-                ('after_drop', sa.schema.DDL(
-                    self.render_tmpl('drop_schema.sql')
-                )),
-            ]
-        return listeners
-
-    def audit_table(self, table, exclude_columns=None):
-        args = [table.name]
-        if exclude_columns:
-            for column in exclude_columns:
-                if column not in table.c:
-                    raise ImproperlyConfigured(
-                        "Could not configure versioning. Table '{}'' does "
-                        "not have a column named '{}'.".format(
-                            table.name, column
-                        )
-                    )
-            args.append(array(exclude_columns))
-
-        if self.schema_name is None:
-            func = sa.func.audit_table
-        else:
-            func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
-        query = sa.select([func(*args)])
-        if query not in cached_statements:
-            cached_statements[query] = StatementExecutor(query)
-        listener = (table, 'after_create', cached_statements[query])
-        if not sa.event.contains(*listener):
-            sa.event.listen(*listener)
 
     def set_activity_values(self, session):
         dialect = session.bind.engine.dialect
@@ -349,9 +208,10 @@ class VersioningManager(object):
 
     def is_modified(self, obj_or_session):
         if hasattr(obj_or_session, '__mapper__'):
-            if not hasattr(obj_or_session, '__versioned__'):
+            version_info = self.__get_versioned_info(obj_or_session)
+            if not version_info:
                 raise ClassNotVersioned(obj_or_session.__class__.__name__)
-            excluded = obj_or_session.__versioned__.get('exclude', [])
+            excluded = version_info.get('exclude', [])
             return bool(
                 set([
                     column.name
@@ -362,12 +222,216 @@ class VersioningManager(object):
             return any(
                 self.is_modified(entity) or entity in obj_or_session.deleted
                 for entity in obj_or_session
-                if hasattr(entity, '__versioned__')
+                if self.__get_versioned_info(entity)
             )
 
-    def receive_before_flush(self, session, flush_context, instances):
+    def __get_versioned_info(self, entity):
+        v_args = getattr(entity, '__versioned__', None)
+        if v_args:
+            return v_args
+        table_args = getattr(entity, '__table_args__', None)
+        if not table_args:
+            return None
+        if isinstance(table_args, Sequence):
+            table_args = next((x for x in iter(table_args) if isinstance(x, dict)), None)
+        if not table_args:
+            return None
+        return table_args.get("info", {}).get("versioned", None)
+
+    def before_flush(self, session, flush_context, instances):
+        if session.transaction in self._marked_transactions:
+            return
+        if session.transaction:
+            self.add_entry_and_mark_transaction(session)
+
+    def add_entry_and_mark_transaction(self, session):
         if self.is_modified(session):
+            self._marked_transactions.add(session.transaction)
             self.set_activity_values(session)
+
+    def attach_listeners(self):
+        for listener in self.listeners:
+            sa.event.listen(*listener)
+
+    def remove_listeners(self):
+        for listener in self.listeners:
+            sa.event.remove(*listener)
+
+class BasicVersioningManager(object):
+    _actor_cls = None
+    _session_manager_factory = partial(SessionManager, values={})
+
+    def __init__(
+        self,
+        actor_cls=None,
+        session_manager_factory=None,
+        schema_name=None,
+        use_statement_level_triggers=True
+    ):
+        if actor_cls is not None:
+            self._actor_cls = actor_cls
+        if session_manager_factory is not None:
+            self._session_manager_factory = session_manager_factory
+        self.values = {}
+        self.listeners = (
+            (
+                orm.mapper,
+                'after_configured',
+                self.after_configured
+            ),
+        )
+        self.schema_name = schema_name
+        self.use_statement_level_triggers = use_statement_level_triggers
+
+    @property
+    def actor_cls(self):
+        if isinstance(self._actor_cls, str):
+            if not self.base:
+                raise ImproperlyConfigured(
+                    'This manager does not have declarative base set up yet. '
+                    'Call init method to set up this manager.'
+                )
+            try:
+                registry = self.base.registry._class_registry
+            except AttributeError:  # SQLAlchemy <1.4
+                registry = self.base._decl_class_registry
+            try:
+                return registry[self._actor_cls]
+            except KeyError:
+                raise ImproperlyConfigured(
+                    'Could not build relationship between Activity'
+                    ' and %s. %s was not found in declarative class '
+                    'registry. Either configure VersioningManager to '
+                    'use different actor class or disable this '
+                    'relationship by setting it to None.' % (
+                        self._actor_cls,
+                        self._actor_cls
+                    )
+                )
+        return self._actor_cls
+
+    def after_configured(self):
+        assign_actor(self.base, self.transaction_cls, self.actor_cls)
+
+    def activity_model_factory(self, base, transaction_cls):
+        class Activity(activity_base(base, self.schema_name, transaction_cls)):
+            __tablename__ = 'activity'
+
+        return Activity
+
+    def transaction_model_factory(self, base):
+        class Transaction(transaction_base(base, self.schema_name)):
+            __tablename__ = 'transaction'
+
+        return Transaction
+
+    def attach_listeners(self):
+        for listener in self.listeners:
+            sa.event.listen(*listener)
+        self.session_manager.attach_listeners()
+
+    def remove_listeners(self):
+        for listener in self.listeners:
+            sa.event.remove(*listener)
+        self.session_manager.remove_listeners()
+
+    @contextmanager
+    def disable(self, session):
+        session.execute(
+            "SET LOCAL postgresql_audit.enable_versioning = 'false'"
+        )
+        try:
+            yield
+        finally:
+            session.execute(
+                "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+            )
+
+    def init(self, base):
+        self.base = base
+        self.transaction_cls = self.transaction_model_factory(base)
+        self.activity_cls = self.activity_model_factory(
+            base,
+            self.transaction_cls
+        )
+        self.session_manager = self._session_manager_factory(self.transaction_cls)
+        self.attach_listeners()
+
+
+class VersioningManager(BasicVersioningManager):
+    def __init__(
+        self,
+        actor_cls=None,
+        session_manager_factory=None,
+        schema_name=None,
+        use_statement_level_triggers=True
+    ):
+        super().__init__(
+            actor_cls=actor_cls,
+            schema_name=schema_name,
+            use_statement_level_triggers=use_statement_level_triggers,
+            session_manager_factory=session_manager_factory
+        )
+        self.listeners = (
+            (
+                orm.mapper,
+                'instrument_class',
+                self.instrument_versioned_classes
+            ),
+            (
+                orm.mapper,
+                'after_configured',
+                self.configure_versioned_classes
+            ),
+        )
+        self.table_listeners = self.get_table_listeners()
+        self.pending_classes = WeakSet()
+        self.cached_ddls = {}
+
+    def get_table_listeners(self):
+        listeners = {'transaction': []}
+
+        listeners['activity'] = [
+            ('after_create', sa.schema.DDL(
+                render_tmpl('jsonb_change_key_name.sql', self.schema_name)
+            )),
+            ('after_create', partial(
+                    create_audit_table,
+                    schema_name=self.schema_name,
+                    use_statement_level_triggers=self.use_statement_level_triggers
+                )
+             ),
+            ('after_create', partial(create_operators, schema_name=self.schema_name))
+        ]
+        if self.schema_name is not None:
+            listeners['transaction'] = [
+                ('before_create', sa.schema.DDL(
+                    render_tmpl('create_schema.sql', self.schema_name)
+                )),
+                ('after_drop', sa.schema.DDL(
+                    render_tmpl('drop_schema.sql', self.schema_name)
+                )),
+            ]
+        return listeners
+
+    def audit_table(self, table, exclude_columns=None):
+        args = [table.name]
+        if exclude_columns:
+            for column in exclude_columns:
+                if column not in table.c:
+                    raise ImproperlyConfigured(
+                        "Could not configure versioning. Table '{}'' does "
+                        "not have a column named '{}'.".format(
+                            table.name, column
+                        )
+                    )
+            args.append(array(exclude_columns))
+        query = build_register_table_query(self.schema_name, *args)
+        if query not in cached_statements:
+            cached_statements[query] = StatementExecutor(query)
+        listener = (table, 'after_create', cached_statements[query])
+        if not sa.event.contains(*listener):
+            sa.event.listen(*listener)
 
     def instrument_versioned_classes(self, mapper, cls):
         """
@@ -400,63 +464,13 @@ class VersioningManager(object):
         for values in self.table_listeners['activity']:
             sa.event.remove(self.activity_cls.__table__, *values)
 
-    @property
-    def actor_cls(self):
-        if isinstance(self._actor_cls, str):
-            if not self.base:
-                raise ImproperlyConfigured(
-                    'This manager does not have declarative base set up yet. '
-                    'Call init method to set up this manager.'
-                )
-            try:
-                registry = self.base.registry._class_registry
-            except AttributeError:  # SQLAlchemy <1.4
-                registry = self.base._decl_class_registry
-            try:
-                return registry[self._actor_cls]
-            except KeyError:
-                raise ImproperlyConfigured(
-                    'Could not build relationship between Activity'
-                    ' and %s. %s was not found in declarative class '
-                    'registry. Either configure VersioningManager to '
-                    'use different actor class or disable this '
-                    'relationship by setting it to None.' % (
-                        self._actor_cls,
-                        self._actor_cls
-                    )
-                )
-        return self._actor_cls
-
     def attach_listeners(self):
         self.attach_table_listeners()
-        for listener in self.listeners:
-            sa.event.listen(*listener)
+        super().attach_listeners()
 
     def remove_listeners(self):
         self.remove_table_listeners()
-        for listener in self.listeners:
-            sa.event.remove(*listener)
-
-    def activity_model_factory(self, base, transaction_cls):
-        class Activity(activity_base(base, self.schema_name, transaction_cls)):
-            __tablename__ = 'activity'
-
-        return Activity
-
-    def transaction_model_factory(self, base):
-        class Transaction(transaction_base(base, self.schema_name)):
-            __tablename__ = 'transaction'
-
-        return Transaction
-
-    def init(self, base):
-        self.base = base
-        self.transaction_cls = self.transaction_model_factory(base)
-        self.activity_cls = self.activity_model_factory(
-            base,
-            self.transaction_cls
-        )
-        self.attach_listeners()
+        super().remove_listeners()
 
 
 versioning_manager = VersioningManager()
