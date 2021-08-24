@@ -6,7 +6,7 @@ from copy import copy
 from flask import g, request
 from flask.globals import _app_ctx_stack, _request_ctx_stack
 
-from .base import VersioningManager, SessionManager
+from .base import SessionManager, VersioningManager
 
 
 class FlaskSessionManager(SessionManager):
@@ -77,4 +77,6 @@ def activity_values(**values):
         g.activity_values = previous_value
 
 
-versioning_manager = VersioningManager(actor_cls="User", session_manager_factory=FlaskSessionManager)
+versioning_manager = VersioningManager(
+    actor_cls='User', session_manager_factory=FlaskSessionManager
+)

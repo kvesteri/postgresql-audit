@@ -18,8 +18,13 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
-from postgresql_audit.utils import render_tmpl, StatementExecutor, create_audit_table, create_operators, \
-    build_register_table_query
+from postgresql_audit.utils import (
+    build_register_table_query,
+    create_audit_table,
+    create_operators,
+    render_tmpl,
+    StatementExecutor
+)
 
 cached_statements = {}
 
@@ -30,6 +35,7 @@ class ImproperlyConfigured(Exception):
 
 class ClassNotVersioned(Exception):
     pass
+
 
 def assign_actor(base, cls, actor_cls):
     if hasattr(cls, 'actor_id'):
@@ -208,10 +214,9 @@ class SessionManager(object):
 
     def is_modified(self, obj_or_session):
         if hasattr(obj_or_session, '__mapper__'):
-            version_info = self.__get_versioned_info(obj_or_session)
-            if not version_info:
+            if not hasattr(obj_or_session, '__versioned__'):
                 raise ClassNotVersioned(obj_or_session.__class__.__name__)
-            excluded = version_info.get('exclude', [])
+            excluded = obj_or_session.__versioned__.get('exclude', [])
             return bool(
                 set([
                     column.name
@@ -222,7 +227,7 @@ class SessionManager(object):
             return any(
                 self.is_modified(entity) or entity in obj_or_session.deleted
                 for entity in obj_or_session
-                if self.__get_versioned_info(entity)
+                if hasattr(entity, '__versioned__')
             )
 
     def __get_versioned_info(self, entity):
@@ -233,10 +238,11 @@ class SessionManager(object):
         if not table_args:
             return None
         if isinstance(table_args, Sequence):
-            table_args = next((x for x in iter(table_args) if isinstance(x, dict)), None)
+            table_args = next(
+                (x for x in iter(table_args) if isinstance(x, dict)), None)
         if not table_args:
             return None
-        return table_args.get("info", {}).get("versioned", None)
+        return table_args.get('info', {}).get('versioned', None)
 
     def before_flush(self, session, flush_context, instances):
         if session.transaction in self._marked_transactions:
@@ -256,6 +262,7 @@ class SessionManager(object):
     def remove_listeners(self):
         for listener in self.listeners:
             sa.event.remove(*listener)
+
 
 class BasicVersioningManager(object):
     _actor_cls = None
@@ -354,7 +361,9 @@ class BasicVersioningManager(object):
             base,
             self.transaction_cls
         )
-        self.session_manager = self._session_manager_factory(self.transaction_cls)
+        self.session_manager = self._session_manager_factory(
+            self.transaction_cls
+        )
         self.attach_listeners()
 
 
@@ -391,18 +400,21 @@ class VersioningManager(BasicVersioningManager):
     def get_table_listeners(self):
         listeners = {'transaction': []}
 
-        listeners['activity'] = [
-            ('after_create', sa.schema.DDL(
+        listeners['activity'] = [(
+            'after_create', sa.schema.DDL(
                 render_tmpl('jsonb_change_key_name.sql', self.schema_name)
-            )),
-            ('after_create', partial(
-                    create_audit_table,
-                    schema_name=self.schema_name,
-                    use_statement_level_triggers=self.use_statement_level_triggers
-                )
-             ),
-            ('after_create', partial(create_operators, schema_name=self.schema_name))
-        ]
+            )
+        ), (
+            'after_create', partial(
+                create_audit_table,
+                schema_name=self.schema_name,
+                use_statement_level_triggers=self.use_statement_level_triggers
+            )
+        ), (
+            'after_create', partial(
+                create_operators, schema_name=self.schema_name
+            )
+        )]
         if self.schema_name is not None:
             listeners['transaction'] = [
                 ('before_create', sa.schema.DDL(

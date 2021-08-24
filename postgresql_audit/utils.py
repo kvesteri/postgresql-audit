@@ -1,5 +1,6 @@
 import os
 import string
+
 import sqlalchemy as sa
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -14,10 +15,12 @@ class StatementExecutor(object):
         bind.execute(self.stmt)
         tx.commit()
 
+
 def read_file(file_):
     with open(os.path.join(HERE, file_)) as f:
         s = f.read()
     return s
+
 
 def render_tmpl(tmpl_name, schema_name=None):
     file_contents = read_file(
@@ -53,7 +56,10 @@ def create_operators(target, bind, schema_name, **kwargs):
     operators_template = render_tmpl('operators.sql', schema_name)
     StatementExecutor(operators_template)(target, bind, **kwargs)
 
-def create_audit_table(target, bind, schema_name, use_statement_level_triggers, **kwargs):
+
+def create_audit_table(
+    target, bind, schema_name, use_statement_level_triggers, **kwargs
+):
     sql = ''
     if (
         use_statement_level_triggers and
