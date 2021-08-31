@@ -1,5 +1,4 @@
 import re
-from itertools import groupby
 
 from alembic.autogenerate import comparators, rewriter
 from alembic.operations import ops
@@ -21,41 +20,40 @@ from postgresql_audit.alembic.register_table_for_version_tracking import (
 @comparators.dispatch_for('schema')
 def compare_timestamp_schema(autogen_context, upgrade_ops, schemas):
     routines = set()
-    for sch in schemas:
+    for schema in schemas:
         schema_name = (
-            autogen_context.dialect.default_schema_name if sch is None else sch
+            autogen_context.dialect.default_schema_name if schema is None
+            else schema
         )
         routines.update([
-            (sch, *row) for row in autogen_context.connection.execute(
-                'select routine_name, routine_definition '
-                'from information_schema.routines '
-                f"where routines.specific_schema='{schema_name}' "
-            )
+            (schema, *row) for row in autogen_context.connection.execute(f'''
+                SELECT routine_name, routine_definition
+                FROM information_schema.routines
+                WHERE routines.specific_schema='{schema_name}'
+            ''')
         ])
 
-    for sch in schemas:
+    for schema in schemas:
         should_track_versions = any(
             'versioned' in table.info
             for table in autogen_context.sorted_tables
-            if table.info and table.schema == sch
+            if table.info and table.schema == schema
         )
-        schema_prefix = f'{sch}.' if sch else ''
+        schema_prefix = f'{schema}.' if schema else ''
+        tracked = f'{schema_prefix}audit_table' in [
+            routine[1] for routine in routines if routine[0] == schema
+        ]
 
-        a = next(
-            (v for k, v in groupby(routines, key=lambda x: x[0]) if k == sch),
-            None
-        )
-        a = list(a) if a else []
         if should_track_versions:
-            if f'{schema_prefix}audit_table' not in (x[1] for x in a):
+            if not tracked:
                 upgrade_ops.ops.insert(
                     0,
-                    InitActivityTableTriggersOp(False, schema=sch)
+                    InitActivityTableTriggersOp(False, schema=schema)
                 )
         else:
-            if f'{schema_prefix}audit_table' in (x[1] for x in a):
+            if tracked:
                 upgrade_ops.ops.append(
-                    RemoveActivityTableTriggersOp(False, schema=sch)
+                    RemoveActivityTableTriggersOp(False, schema=schema)
                 )
 
 
@@ -76,21 +74,21 @@ def compare_timestamp_table(
         if schemaname is None else schemaname
     )
 
-    triggers = [row for row in autogen_context.connection.execute(
-        'select event_object_schema as table_schema,'
-        'event_object_table as table_name,'
-        'trigger_schema,'
-        'trigger_name,'
-        "string_agg(event_manipulation, ',') as event,"
-        'action_timing as activation,'
-        'action_condition as condition,'
-        'action_statement as definition'
-        'from information_schema.triggers'
-        f"where event_object_table = '{tablename}'"
-        f"and trigger_schema = '{schema_name}'"
-        'group by 1,2,3,4,6,7,8'
-        'order by table_schema, table_name;'
-    )]
+    triggers = [row for row in autogen_context.connection.execute(f'''
+        SELECT event_object_schema AS table_schema,
+        event_object_table AS table_name,
+        trigger_schema,
+        trigger_name,
+        STRING_AGG(event_manipulation, ',') AS event,
+        action_timing AS activation,
+        action_condition AS condition,
+        action_statement AS definition
+        FROM information_schema.triggers
+        WHERE event_object_table = '{tablename}'
+        AND trigger_schema = '{schema_name}'
+        GROUP BY 1,2,3,4,6,7,8
+        ORDER BY table_schema, table_name
+    ''')]
 
     trigger_name = 'audit_trigger'
 

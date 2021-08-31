@@ -73,7 +73,7 @@ class TestActivityCreation(object):
         session,
         versioning_manager
     ):
-        versioning_manager.session_manager.values = {'actor_id': 1}
+        versioning_manager.values = {'actor_id': 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -86,7 +86,7 @@ class TestActivityCreation(object):
         session,
         versioning_manager
     ):
-        versioning_manager.session_manager.values = {'actor_id': lambda: 1}
+        versioning_manager.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -100,8 +100,8 @@ class TestActivityCreation(object):
         versioning_manager,
         activity_cls
     ):
-        versioning_manager.session_manager.values = {'actor_id': 1}
-        versioning_manager.session_manager.set_activity_values(session)
+        versioning_manager.values = {'actor_id': 1}
+        versioning_manager.set_activity_values(session)
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
 
@@ -208,9 +208,7 @@ class TestActivityCreation(object):
         session,
         versioning_manager
     ):
-        versioning_manager.session_manager.values = {
-            'client_addr': '127.0.0.1'
-        }
+        versioning_manager.values = {'client_addr': '127.0.0.1'}
         user = user_class(name='Jack')
         session.add(user)
         session.flush()
@@ -338,7 +336,7 @@ class TestIsModified(object):
     ):
         article = article_class(name='Someone', _created_at=datetime.now())
         session.add(article)
-        assert versioning_manager.session_manager.is_modified(article)
+        assert versioning_manager.is_modified(article)
 
     def test_modified_transient_object(
         self,
@@ -348,8 +346,8 @@ class TestIsModified(object):
     ):
         article = article_class(name='Article 1')
         session.add(article)
-        assert versioning_manager.session_manager.is_modified(article)
-        assert versioning_manager.session_manager.is_modified(session)
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
 
     def test_modified_excluded_column_with_persistent_object(
         self,
@@ -358,8 +356,8 @@ class TestIsModified(object):
         session
     ):
         article.updated_at = datetime.now()
-        assert not versioning_manager.session_manager.is_modified(article)
-        assert not versioning_manager.session_manager.is_modified(session)
+        assert not versioning_manager.is_modified(article)
+        assert not versioning_manager.is_modified(session)
 
     def test_modified_persistent_object(
         self,
@@ -368,8 +366,8 @@ class TestIsModified(object):
         session
     ):
         article.name = 'Article updated'
-        assert versioning_manager.session_manager.is_modified(article)
-        assert versioning_manager.session_manager.is_modified(session)
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
 
     def test_modified_excluded_relationship_column(
         self,
@@ -379,8 +377,8 @@ class TestIsModified(object):
         session
     ):
         article.creator = user_class(name='Someone')
-        assert not versioning_manager.session_manager.is_modified(article)
-        assert not versioning_manager.session_manager.is_modified(session)
+        assert not versioning_manager.is_modified(article)
+        assert not versioning_manager.is_modified(session)
 
     def test_modified_relationship(
         self,
@@ -390,8 +388,8 @@ class TestIsModified(object):
         session
     ):
         article.author = user_class(name='Someone')
-        assert versioning_manager.session_manager.is_modified(article)
-        assert versioning_manager.session_manager.is_modified(session)
+        assert versioning_manager.is_modified(article)
+        assert versioning_manager.is_modified(session)
 
     def test_deleted_object(
         self,
@@ -401,7 +399,7 @@ class TestIsModified(object):
         session
     ):
         session.delete(article)
-        assert versioning_manager.session_manager.is_modified(session)
+        assert versioning_manager.is_modified(session)
 
 
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')

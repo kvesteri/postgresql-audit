@@ -7,11 +7,7 @@ from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa
 
-from postgresql_audit.flask import (
-    activity_values,
-    FlaskSessionManager,
-    VersioningManager
-)
+from postgresql_audit.flask import activity_values, VersioningManager
 
 
 def login(client, user):
@@ -81,9 +77,7 @@ def app(dns, db, login_manager, user_class, article_class):
 
 @pytest.yield_fixture
 def versioning_manager(db):
-    vm = VersioningManager(
-        actor_cls="User", session_manager_factory=FlaskSessionManager
-    )
+    vm = VersioningManager()
     vm.init(db.Model)
     yield vm
     vm.remove_listeners()

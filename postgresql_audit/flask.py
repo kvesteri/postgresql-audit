@@ -6,10 +6,12 @@ from copy import copy
 from flask import g, request
 from flask.globals import _app_ctx_stack, _request_ctx_stack
 
-from .base import SessionManager, VersioningManager
+from .base import VersioningManager as BaseVersioningManager
 
 
-class FlaskSessionManager(SessionManager):
+class VersioningManager(BaseVersioningManager):
+    _actor_cls = 'User'
+
     def get_transaction_values(self):
         values = copy(self.values)
         if context_available() and hasattr(g, 'activity_values'):
@@ -77,6 +79,4 @@ def activity_values(**values):
         g.activity_values = previous_value
 
 
-versioning_manager = VersioningManager(
-    actor_cls='User', session_manager_factory=FlaskSessionManager
-)
+versioning_manager = VersioningManager()

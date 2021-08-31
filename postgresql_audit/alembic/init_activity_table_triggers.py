@@ -75,16 +75,18 @@ def remove_activity_table_triggers(operations, operation):
     if operation.schema:
         conn.execute(render_tmpl('drop_schema.sql', operation.schema))
 
-    conn.execute(
-        'DROP FUNCTION jsonb_change_key_name('
-        'data jsonb, old_key text, new_key text)'
-    )
+    conn.execute('''
+        DROP FUNCTION jsonb_change_key_name(
+            data jsonb, old_key text, new_key text
+        )
+    ''')
     schema_prefix = f'{operation.schema}.' if operation.schema else ''
 
-    conn.execute(
-        f'DROP FUNCTION {schema_prefix}audit_table('
-        'target_table regclass, ignored_cols text[])'
-    )
+    conn.execute(f'''
+        DROP FUNCTION {schema_prefix}audit_table(
+            target_table regclass, ignored_cols text[]
+        )
+    ''')
     conn.execute(f'DROP FUNCTION {schema_prefix}create_activity()')
 
     if bind.dialect.server_version_info < (9, 5, 0):

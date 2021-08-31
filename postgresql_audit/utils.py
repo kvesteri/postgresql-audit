@@ -7,19 +7,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 class StatementExecutor(object):
-    def __init__(self, stmt):
-        self.stmt = stmt
+    def __init__(self, statement):
+        self.statement = statement
 
     def __call__(self, target, bind, **kwargs):
         tx = bind.begin()
-        bind.execute(self.stmt)
+        bind.execute(self.statement)
         tx.commit()
 
 
 def read_file(file_):
-    with open(os.path.join(HERE, file_)) as f:
-        s = f.read()
-    return s
+    with open(os.path.join(HERE, file_)) as file:
+        data = file.read()
+    return data
 
 
 def render_tmpl(tmpl_name, schema_name=None):

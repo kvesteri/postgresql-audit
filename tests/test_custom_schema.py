@@ -98,7 +98,7 @@ class TestCustomSchemaactivityCreation(object):
         versioning_manager,
         activity_cls
     ):
-        versioning_manager.session_manager.values = {'actor_id': 1}
+        versioning_manager.values = {'actor_id': 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -112,7 +112,7 @@ class TestCustomSchemaactivityCreation(object):
         versioning_manager,
         activity_cls
     ):
-        versioning_manager.session_manager.values = {'actor_id': lambda: 1}
+        versioning_manager.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -126,8 +126,8 @@ class TestCustomSchemaactivityCreation(object):
         versioning_manager,
         activity_cls
     ):
-        versioning_manager.session_manager.values = {'actor_id': 1}
-        versioning_manager.session_manager.set_activity_values(session)
+        versioning_manager.values = {'actor_id': 1}
+        versioning_manager.set_activity_values(session)
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
         activity = session.query(activity_cls).first()

@@ -72,16 +72,16 @@ def register_for_version_tracking(operations, operation):
 @Operations.implementation_for(DeregisterTableForVersionTrackingOp)
 def deregister_for_version_tracking(operations, operation):
     operations.execute(
-        f'drop trigger if exists audit_trigger_insert on {operation.tablename}'
+        f'DROP TRIGGER IF EXISTS audit_trigger_insert ON {operation.tablename}'
     )
     operations.execute(
-        f'drop trigger if exists audit_trigger_update on {operation.tablename}'
+        f'DROP TRIGGER IF EXISTS audit_trigger_update ON {operation.tablename}'
     )
     operations.execute(
-        f'drop trigger if exists audit_trigger_delete on {operation.tablename}'
+        f'DROP TRIGGER IF EXISTS audit_trigger_delete ON {operation.tablename}'
     )
     operations.execute(
-        f'drop trigger if exists audit_trigger_row on {operation.tablename}'
+        f'DROP TRIGGER IF EXISTS audit_trigger_row ON {operation.tablename}'
     )
 
 
