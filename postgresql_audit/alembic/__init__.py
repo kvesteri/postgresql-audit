@@ -79,7 +79,7 @@ def compare_timestamp_table(
         'event_object_table AS table_name,'
         'trigger_schema,'
         'trigger_name,'
-        'STRING_AGG(event_manipulation, ',') AS event,'
+        "STRING_AGG(event_manipulation, ',') AS event,"
         'action_timing AS activation,'
         'action_condition AS condition,'
         'action_statement AS definition '
