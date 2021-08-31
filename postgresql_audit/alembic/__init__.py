@@ -74,21 +74,21 @@ def compare_timestamp_table(
         if schemaname is None else schemaname
     )
 
-    triggers = [row for row in autogen_context.connection.execute(f'''
-        SELECT event_object_schema AS table_schema,
-        event_object_table AS table_name,
-        trigger_schema,
-        trigger_name,
-        STRING_AGG(event_manipulation, ',') AS event,
-        action_timing AS activation,
-        action_condition AS condition,
-        action_statement AS definition
-        FROM information_schema.triggers
-        WHERE event_object_table = '{tablename}'
-        AND trigger_schema = '{schema_name}'
-        GROUP BY 1,2,3,4,6,7,8
-        ORDER BY table_schema, table_name
-    ''')]
+    triggers = [row for row in autogen_context.connection.execute(
+        'SELECT event_object_schema AS table_schema,'
+        'event_object_table AS table_name,'
+        'trigger_schema,'
+        'trigger_name,'
+        'STRING_AGG(event_manipulation, ',') AS event,'
+        'action_timing AS activation,'
+        'action_condition AS condition,'
+        'action_statement AS definition '
+        'FROM information_schema.triggers '
+        f"WHERE event_object_table = '{tablename}' "
+        f"AND trigger_schema = '{schema_name}' "
+        'GROUP BY 1,2,3,4,6,7,8 '
+        'ORDER BY table_schema, table_name'
+    )]
 
     trigger_name = 'audit_trigger'
 
