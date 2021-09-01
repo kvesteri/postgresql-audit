@@ -167,7 +167,7 @@ def add_column_rewrite(context, revision, op):
 
 @writer.rewrites(ops.DropColumnOp)
 def drop_column_rewrite(context, revision, op):
-    column = op._orig_column
+    column = op.to_column()
     table_info = column.table.info or {}
     if (
         'versioned' in table_info
