@@ -31,14 +31,16 @@ class TestJSONBChangeKeyName(object):
     )
     def test_raw_sql(self, session, data, old_key, new_key, expected):
         result = session.execute(
-            '''SELECT jsonb_change_key_name(
-                '{data}'::jsonb,
-                '{old_key}',
-                '{new_key}'
-            )'''.format(
-                data=data,
-                old_key=old_key,
-                new_key=new_key
+            sa.text(
+                '''SELECT jsonb_change_key_name(
+                    '{data}'::jsonb,
+                    '{old_key}',
+                    '{new_key}'
+                )'''.format(
+                    data=data,
+                    old_key=old_key,
+                    new_key=new_key
+                )
             )
         ).scalar()
         assert result == expected
@@ -75,7 +77,7 @@ class TestJSONBChangeKeyName(object):
         expected
     ):
         result = session.execute(
-            sa.select([jsonb_change_key_name(data, old_key, new_key)])
+            sa.select(jsonb_change_key_name(data, old_key, new_key))
         ).scalar()
         assert result == expected
 
@@ -104,9 +106,11 @@ class TestJSONBConcatOperator(object):
     )
     def test_raw_sql(self, session, data, merge_data, expected):
         result = session.execute(
-            '''SELECT '{data}'::jsonb || '{merge_data}'::jsonb'''.format(
-                data=data,
-                merge_data=merge_data
+            sa.text(
+                '''SELECT '{data}'::jsonb || '{merge_data}'::jsonb'''.format(
+                    data=data,
+                    merge_data=merge_data
+                )
             )
         ).scalar()
         assert result == expected

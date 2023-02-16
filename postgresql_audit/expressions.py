@@ -15,7 +15,7 @@ class jsonb_change_key_name(expression.FunctionElement):
 
 
         data = {'key1': 1, 'key3': 4}
-        query = sa.select([jsonb_merge(data, 'key1', 'key2')])
+        query = sa.select(jsonb_merge(data, 'key1', 'key2'))
         session.execute(query).scalar()  # {'key2': 1, 'key3': 4}
     """
     type = JSONB()

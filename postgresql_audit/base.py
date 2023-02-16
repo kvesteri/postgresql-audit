@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from weakref import WeakSet
 
 import sqlalchemy as sa
-from sqlalchemy import orm
+from sqlalchemy import orm, text
 from sqlalchemy.dialects.postgresql import (
     array,
     ExcludeConstraint,
@@ -205,13 +205,17 @@ class VersioningManager(object):
     @contextmanager
     def disable(self, session):
         session.execute(
-            "SET LOCAL postgresql_audit.enable_versioning = 'false'"
+            text(
+                "SET LOCAL postgresql_audit.enable_versioning = 'false'"
+            )
         )
         try:
             yield
         finally:
             session.execute(
-                "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+                text(
+                    "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+                )
             )
 
     def render_tmpl(self, tmpl_name):
@@ -299,7 +303,7 @@ class VersioningManager(object):
             func = sa.func.audit_table
         else:
             func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
-        query = sa.select([func(*args)])
+        query = sa.select(func(*args))
         if query not in cached_statements:
             cached_statements[query] = StatementExecutor(query)
         listener = (table, 'after_create', cached_statements[query])

@@ -1,6 +1,7 @@
 import json
 import pytest
 
+from sqlalchemy import text
 
 @pytest.mark.parametrize(
     ('old', 'new', 'result'),
@@ -23,7 +24,9 @@ import pytest
 )
 def test_jsonb_subtract(table_creator, session, old, new, result):
     assert session.execute(
-        'SELECT (:new)::jsonb - (:old)::jsonb',
+        text(
+            'SELECT (:new)::jsonb - (:old)::jsonb'
+        ),
         dict(old=json.dumps(old), new=json.dumps(new))
     ).scalar() == result
 
@@ -47,6 +50,8 @@ def test_jsonb_subtract(table_creator, session, old, new, result):
 )
 def test_jsonb_subtract_text_array(table_creator, session, old, new, result):
     assert session.execute(
-        'SELECT (:new)::jsonb - (:old)::text[]',
+        text(
+            'SELECT (:new)::jsonb - (:old)::text[]'
+        ),
         dict(old=old, new=json.dumps(new))
     ).scalar() == result
