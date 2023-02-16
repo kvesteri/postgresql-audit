@@ -3,7 +3,7 @@ import os
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -41,7 +41,7 @@ def engine(dns):
 @pytest.yield_fixture
 def connection(engine):
     conn = engine.connect()
-    conn.execute('CREATE EXTENSION IF NOT EXISTS btree_gist')
+    conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
     yield conn
     conn.close()
 

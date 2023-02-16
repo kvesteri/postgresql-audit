@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import pytest
 
+from sqlalchemy import text
+
 from .utils import last_activity
 
 
@@ -9,8 +11,10 @@ class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
     def audit_trigger_creator(self, session, user_class):
         session.execute(
-            '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
-                user_class.__tablename__
+            text(
+                '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
+                    user_class.__tablename__
+                )
             )
         )
 
