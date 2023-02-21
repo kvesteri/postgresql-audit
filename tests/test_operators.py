@@ -3,6 +3,7 @@ import pytest
 
 from sqlalchemy import text
 
+
 @pytest.mark.parametrize(
     ('old', 'new', 'result'),
     (

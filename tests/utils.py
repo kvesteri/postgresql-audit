@@ -1,5 +1,6 @@
 from sqlalchemy import text
 
+
 def last_activity(connection, schema=None):
     if schema is not None:
         schema_prefix = '{}.'.format(schema)

@@ -37,7 +37,11 @@ def table_creator(
     schema_name
 ):
     sa.orm.configure_mappers()
-    connection.execute(sa.text('DROP SCHEMA IF EXISTS {} CASCADE'.format(schema_name)))
+    connection.execute(
+        sa.text(
+            'DROP SCHEMA IF EXISTS {} CASCADE'.format(schema_name)
+        )
+    )
     tx = connection.begin()
     versioning_manager.transaction_cls.__table__.create(connection)
     versioning_manager.activity_cls.__table__.create(connection)
