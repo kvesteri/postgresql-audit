@@ -3,6 +3,11 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+Not yet released
+^^^^^^^^^^^^^^^^
+
+- **BREAKING CHANGE**: Drop support for SQLAlchemy 1.1, 1.2 and 1.3, which are no longer maintained.
+
 0.13.0 (2021-05-16)
 ^^^^^^^^^^^^^^^^^^^
 

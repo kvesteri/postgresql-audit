@@ -408,10 +408,7 @@ class VersioningManager(object):
                     'This manager does not have declarative base set up yet. '
                     'Call init method to set up this manager.'
                 )
-            try:
-                registry = self.base.registry._class_registry
-            except AttributeError:  # SQLAlchemy <1.4
-                registry = self.base._decl_class_registry
+            registry = self.base.registry._class_registry
             try:
                 return registry[self._actor_cls]
             except KeyError:
