@@ -111,8 +111,6 @@ Now we can check the newly created activity.
 
 
 
-.. |Build Status| image:: https://travis-ci.org/kvesteri/postgresql-audit.png?branch=master
-   :target: https://travis-ci.org/kvesteri/postgresql-audit
 .. |Version Status| image:: https://img.shields.io/pypi/v/PostgreSQL-Audit.svg
    :target: https://pypi.python.org/pypi/PostgreSQL-Audit/
 .. |Downloads| image:: https://img.shields.io/pypi/dm/PostgreSQL-Audit.svg
