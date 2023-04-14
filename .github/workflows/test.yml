@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  tests:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgresql-version }}
+        env:
+          POSTGRES_DB: postgresql_audit_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Python 3.9"
+            python: "3.9"
+            postgresql-version: 12
+            tox: py-sqla1.4
+
+          - name: "Python 3.8"
+            python: "3.8"
+            postgresql-version: 12
+            tox: py-sqla1.4
+
+          - name: "Python 3.7"
+            python: "3.7"
+            postgresql-version: 12
+            tox: py-sqla1.4
+
+          - name: "Minimum versions"
+            python: "3.7"
+            postgresql-version: 9.5
+            tox: py-sqla1.1
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade tox setuptools
+
+      - name: Run tests
+        env:
+          POSTGRESQL_AUDIT_TEST_PASSWORD: postgres
+        run: tox -e ${{ matrix.tox }}

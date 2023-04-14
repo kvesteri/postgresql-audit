@@ -16,13 +16,18 @@ def db_user():
 
 
 @pytest.fixture
+def db_password():
+    return os.environ.get('POSTGRESQL_AUDIT_TEST_PASSWORD', '')
+
+
+@pytest.fixture
 def db_name():
     return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
 
 
 @pytest.fixture
-def dns(db_user, db_name):
-    return 'postgresql://{}@localhost/{}'.format(db_user, db_name)
+def dns(db_user, db_password, db_name):
+    return 'postgresql://{}:{}@localhost/{}'.format(db_user, db_password, db_name)
 
 
 @pytest.fixture
