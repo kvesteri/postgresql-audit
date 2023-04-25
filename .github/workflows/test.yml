@@ -45,7 +45,7 @@ jobs:
           - name: "Minimum versions"
             python: "3.7"
             postgresql-version: 9.5
-            tox: py-sqla1.1
+            tox: py-sqla1.4
 
     steps:
       - uses: actions/checkout@v3
