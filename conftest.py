@@ -86,6 +86,10 @@ def user_class(base):
         id = sa.Column(sa.Integer, primary_key=True)
         name = sa.Column(sa.String(100))
         age = sa.Column(sa.Integer)
+
+        def get_id(self):
+            return str(self.id)
+
     return User
 
 
