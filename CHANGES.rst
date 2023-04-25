@@ -8,6 +8,7 @@ Not yet released
 
 - **BREAKING CHANGE**: Drop support for Python 3.6, which reached the end of its life on December 23rd, 2021.
 - **BREAKING CHANGE**: Drop support for SQLAlchemy 1.1, 1.2 and 1.3, which are no longer maintained.
+- Fix ``SAWarning`` from SQLAlchemy 1.4 about missing ``inherit_cache`` attribute
 
 0.13.0 (2021-05-16)
 ^^^^^^^^^^^^^^^^^^^
