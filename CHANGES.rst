@@ -3,8 +3,8 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-Not yet released
-^^^^^^^^^^^^^^^^
+0.14.0 (2023-04-26)
+^^^^^^^^^^^^^^^^^^^
 
 - **BREAKING CHANGE**: Drop support for Python 3.6, which reached the end of its life on December 23rd, 2021.
 - **BREAKING CHANGE**: Drop support for SQLAlchemy 1.1, 1.2 and 1.3, which are no longer maintained.
