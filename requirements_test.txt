@@ -1,5 +1,4 @@
 Flask-Login==0.6.2
-Flask-SQLAlchemy==3.0.3
 Flask==2.2.3
 flexmock==0.9.7
 itsdangerous==2.1.2
