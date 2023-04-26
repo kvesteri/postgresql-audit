@@ -53,7 +53,7 @@ def app(dns, db, login_manager, user_class, article_class):
     return application
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def versioning_manager(db):
     vm = VersioningManager()
     vm.init(db.Model)
@@ -66,7 +66,7 @@ def activity_cls(versioning_manager):
     return versioning_manager.activity_cls
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def table_creator(app, db, models, activity_cls, versioning_manager):
     with app.app_context():
         db.configure_mappers()

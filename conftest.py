@@ -35,7 +35,7 @@ def base():
     return declarative_base()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def engine(dns):
     engine = create_engine(dns)
     engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
@@ -43,7 +43,7 @@ def engine(dns):
     engine.dispose()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def connection(engine):
     conn = engine.connect()
     conn.execute('CREATE EXTENSION IF NOT EXISTS btree_gist')
@@ -51,7 +51,7 @@ def connection(engine):
     conn.close()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def session(connection):
     Session = sessionmaker(bind=connection)
     session = Session()
@@ -60,7 +60,7 @@ def session(connection):
     session.close_all()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def versioning_manager(base):
     vm = VersioningManager()
     vm.init(base)
@@ -108,7 +108,7 @@ def models(user_class, article_class):
     return [user_class, article_class]
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def table_creator(
     base,
     versioning_manager,

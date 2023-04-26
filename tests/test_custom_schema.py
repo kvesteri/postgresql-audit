@@ -14,7 +14,7 @@ def schema_name():
     return 'audit'
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def versioning_manager(base, schema_name):
     vm = VersioningManager(schema_name=schema_name)
     vm.init(base)
@@ -22,12 +22,12 @@ def versioning_manager(base, schema_name):
     vm.remove_listeners()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def activity_cls(versioning_manager):
     yield versioning_manager.activity_cls
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def table_creator(
     base,
     connection,
