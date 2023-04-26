@@ -307,7 +307,8 @@ class VersioningManager(object):
             sa.event.listen(*listener)
 
     def set_activity_values(self, session):
-        dialect = session.bind.engine.dialect
+        engine = session.get_bind(self.transaction_cls)
+        dialect = engine.dialect
         table = self.transaction_cls.__table__
 
         if not isinstance(dialect, PGDialect):
