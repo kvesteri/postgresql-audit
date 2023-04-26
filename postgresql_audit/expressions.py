@@ -20,6 +20,7 @@ class jsonb_change_key_name(expression.FunctionElement):
     """
     type = JSONB()
     name = 'jsonb_change_key_name'
+    inherit_cache = False
 
 
 @compiles(jsonb_change_key_name)
