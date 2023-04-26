@@ -3,8 +3,8 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-Not yet released
-^^^^^^^^^^^^^^^^
+0.14.1 (2023-04-26)
+^^^^^^^^^^^^^^^^^^^
 
 - Fix compatibility with Flask-SQLAlchemy<3.0
 
