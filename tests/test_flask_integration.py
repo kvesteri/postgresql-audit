@@ -2,23 +2,12 @@
 from datetime import datetime
 
 import pytest
-from flask import Flask, url_for
-from flask_login import LoginManager
-from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa
+from flask import Flask
+from flask_login import FlaskLoginClient, LoginManager
+from flask_sqlalchemy import SQLAlchemy
 
 from postgresql_audit.flask import activity_values, VersioningManager
-
-
-def login(client, user):
-    with client.session_transaction() as s:
-        s['user_id'] = user.id
-    return user
-
-
-def logout(client, user=None):
-    with client.session_transaction() as s:
-        s['user_id'] = None
 
 
 @pytest.fixture
@@ -36,19 +25,6 @@ def login_manager():
     return LoginManager()
 
 
-@pytest.yield_fixture
-def engine(db):
-    yield db.session.bind
-    db.session.bind.dispose()
-
-
-@pytest.yield_fixture
-def connection(db, engine):
-    conn = db.session.connection()
-    yield conn
-    conn.close()
-
-
 @pytest.fixture
 def app(dns, db, login_manager, user_class, article_class):
     @login_manager.user_loader
@@ -61,6 +37,8 @@ def app(dns, db, login_manager, user_class, article_class):
     application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     application.secret_key = 'secret'
     application.debug = True
+    application.test_client_class = FlaskLoginClient
+
     db.init_app(application)
     login_manager.init_app(application)
 
@@ -89,29 +67,18 @@ def activity_cls(versioning_manager):
 
 
 @pytest.yield_fixture
-def client(app):
-    client = app.test_client()
-    app_ctx = app.app_context()
-    app_ctx.push()
-    request_ctx = app.test_request_context()
-    request_ctx.push()
-    yield client
-    request_ctx.pop()
-    app_ctx.pop()
-
-
-@pytest.yield_fixture
-def table_creator(client, db, models, activity_cls, versioning_manager):
-    db.configure_mappers()
-    conn = db.session.connection()
-    versioning_manager.transaction_cls.__table__.create(conn)
-    versioning_manager.activity_cls.__table__.create(conn)
-    db.Model.metadata.create_all(conn)
-    db.session.commit()
-    yield
-    conn = db.session.connection()
-    db.Model.metadata.drop_all(conn)
-    db.session.commit()
+def table_creator(app, db, models, activity_cls, versioning_manager):
+    with app.app_context():
+        db.configure_mappers()
+        conn = db.session.connection()
+        versioning_manager.transaction_cls.__table__.create(conn)
+        versioning_manager.activity_cls.__table__.create(conn)
+        db.Model.metadata.create_all(conn)
+        db.session.commit()
+        yield
+        conn = db.session.connection()
+        db.Model.metadata.drop_all(conn)
+        db.session.commit()
 
 
 @pytest.fixture
@@ -130,20 +97,20 @@ def article_class(base):
 class TestFlaskIntegration(object):
     def test_client_addr_with_proxies(
         self,
-        client,
+        app,
         user,
         db,
         activity_cls,
         session
     ):
-        login(client, user)
         environ_base = dict(REMOTE_ADDR='')
         proxy_headers = dict(X_FORWARDED_FOR='1.1.1.1,77.77.77.77')
-        client.get(
-            url_for('.test_simple_flush'),
-            environ_base=environ_base,
-            headers=proxy_headers
-        )
+        with app.test_client(user=user) as client:
+            client.get(
+                '/simple-flush',
+                environ_base=environ_base,
+                headers=proxy_headers
+            )
         activities = (
             db.session.query(activity_cls)
             .order_by(activity_cls.id.desc()).all()
@@ -154,13 +121,13 @@ class TestFlaskIntegration(object):
 
     def test_simple_flushing_view(
         self,
+        app,
         db,
-        client,
         user,
         versioning_manager
     ):
-        login(client, user)
-        client.get(url_for('.test_simple_flush'))
+        with app.test_client(user=user) as client:
+            client.get('/simple-flush')
 
         activities = (
             db.session.query(versioning_manager.activity_cls)
@@ -168,13 +135,12 @@ class TestFlaskIntegration(object):
         )
         assert len(activities) == 2
         assert activities[0].transaction.actor_id == user.id
-        assert activities[0].transaction.client_addr is None
+        assert activities[0].transaction.client_addr == '127.0.0.1'
 
     def test_view_with_overriden_activity_values(
         self,
         db,
         app,
-        client,
         user,
         article_class,
         versioning_manager
@@ -192,8 +158,8 @@ class TestFlaskIntegration(object):
                 db.session.commit()
             return ''
 
-        login(client, user)
-        client.get(url_for('.test_activity_values'))
+        with app.test_client(user=user) as client:
+            client.get('/activity-values')
 
         activities = (
             db.session.query(versioning_manager.activity_cls)
@@ -207,7 +173,6 @@ class TestFlaskIntegration(object):
         self,
         db,
         app,
-        client,
         user,
         article_class,
         versioning_manager
@@ -231,8 +196,8 @@ class TestFlaskIntegration(object):
             create_article()
             return ''
 
-        login(client, user)
-        client.get(url_for('.test_activity_values'))
+        with app.test_client(user=user) as client:
+            client.get('/activity-values')
 
         activities = (
             db.session.query(versioning_manager.activity_cls)
@@ -253,7 +218,6 @@ class TestFlaskIntegration(object):
     def test_updating_excluded_attr_does_not_create_transaction(
         self,
         app,
-        client,
         article_class,
         db,
         transaction_cls,
@@ -269,6 +233,6 @@ class TestFlaskIntegration(object):
             db.session.commit()
             return ''
 
-        login(client, user)
-        client.get(url_for('.test_update_excluded_column'))
+        with app.test_client(user=user) as client:
+            client.get('/update-excluded-column')
         assert db.session.query(transaction_cls).count() == 1
