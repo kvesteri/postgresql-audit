@@ -11,6 +11,7 @@ Not yet released
 - Fix ``SAWarning`` from SQLAlchemy 1.4 about missing ``inherit_cache`` attribute
 - Fix deprecation warnings from Flask 2.2 about ``_app_ctx_stack.top`` and ``_request_ctx_stack.top`` usage.
 - Add support for Flask-SQLAlchemy 3.0
+- Add support for Python 3.10 and 3.11
 
 0.13.0 (2021-05-16)
 ^^^^^^^^^^^^^^^^^^^
