@@ -1,8 +1,8 @@
 Flask-Login==0.6.2
-Flask==2.2.3
+Flask==2.3.2
 flexmock==0.9.7
 itsdangerous==2.1.2
 MarkupSafe==2.1.2
 psycopg2>=2.4.6
 pytest==7.3.1
-Werkzeug==2.2.3
+Werkzeug==2.3.3
