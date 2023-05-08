@@ -236,3 +236,23 @@ class TestFlaskIntegration(object):
         with app.test_client(user=user) as client:
             client.get('/update-excluded-column')
         assert db.session.query(transaction_cls).count() == 1
+
+    def test_overriden_activity_values_without_request_context(
+        self,
+        db,
+        article_class,
+        versioning_manager
+    ):
+        with activity_values(actor_id=4):
+            article = article_class()
+            article.name = u'Some article'
+            db.session.add(article)
+            db.session.commit()
+
+        activities = (
+            db.session.query(versioning_manager.activity_cls)
+            .order_by(versioning_manager.activity_cls.id.desc()).all()
+        )
+        assert len(activities) == 1
+        assert activities[0].transaction.actor_id == 4
+        assert activities[0].transaction.client_addr is None
