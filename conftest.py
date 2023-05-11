@@ -44,10 +44,12 @@ def engine(dns):
 
 @pytest.fixture
 def connection(engine):
-    conn = engine.connect()
-    conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
-    yield conn
-    conn.close()
+    with engine.connect() as conn:
+        with conn.begin():
+            conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
+        
+        yield conn
+        conn.close()
 
 
 @pytest.fixture
