@@ -4,8 +4,7 @@ import os
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import close_all_sessions, declarative_base, sessionmaker
 
 from postgresql_audit import VersioningManager
 
@@ -57,7 +56,7 @@ def session(connection):
     session = Session()
     yield session
     session.expunge_all()
-    session.close_all()
+    close_all_sessions()
 
 
 @pytest.fixture
