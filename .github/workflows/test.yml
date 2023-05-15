@@ -47,13 +47,8 @@ jobs:
             postgresql-version: 12
             tox: py-sqla1.4-flask-sqla3.0
 
-          - name: "Python 3.7"
-            python: "3.7"
-            postgresql-version: 12
-            tox: py-sqla1.4-flask-sqla3.0
-
           - name: "Minimum versions"
-            python: "3.7"
+            python: "3.8"
             postgresql-version: 9.5
             tox: py-sqla1.4-flask-sqla2.5
 
