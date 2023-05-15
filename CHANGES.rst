@@ -3,8 +3,8 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-Not yet released
-^^^^^^^^^^^^^^^^
+0.15.0 (2023-05-15)
+^^^^^^^^^^^^^^^^^^^
 
 - **BREAKING CHANGE**: flask.activity_values doesn't require request context (#75, courtesy of tvuotila)
 
