@@ -13,7 +13,7 @@ class VersioningManager(BaseVersioningManager):
 
     def get_transaction_values(self):
         values = copy(self.values)
-        if has_request_context() and hasattr(g, 'activity_values'):
+        if g and hasattr(g, 'activity_values'):
             values.update(g.activity_values)
         if (
             'client_addr' not in values and
@@ -54,7 +54,8 @@ def merge_dicts(a, b):
 
 @contextmanager
 def activity_values(**values):
-    if not has_request_context():
+    if not g:
+        yield  # Needed for contextmanager
         return
     if hasattr(g, 'activity_values'):
         previous_value = g.activity_values
