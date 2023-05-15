@@ -38,6 +38,7 @@ Running the tests
     git clone https://github.com/kvesteri/postgresql-audit.git
     cd postgresql-audit
     pip install tox
+    createdb postgresql_audit_test
     tox
 
 
