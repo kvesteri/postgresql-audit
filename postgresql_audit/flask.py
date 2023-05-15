@@ -31,10 +31,6 @@ class VersioningManager(BaseVersioningManager):
     def default_actor_id(self):
         from flask_login import current_user
 
-        # Return None if we are outside of request context.
-        if not has_request_context():
-            return
-
         try:
             return current_user.id
         except AttributeError:
