@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from copy import copy
 
-from flask import g, has_request_context, request
+from flask import g, request
 
 from .base import VersioningManager as BaseVersioningManager
 
