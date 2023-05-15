@@ -37,12 +37,16 @@ def table_creator(
     schema_name
 ):
     sa.orm.configure_mappers()
-    connection.execute('DROP SCHEMA IF EXISTS {} CASCADE'.format(schema_name))
-    tx = connection.begin()
-    versioning_manager.transaction_cls.__table__.create(connection)
-    versioning_manager.activity_cls.__table__.create(connection)
-    base.metadata.create_all(connection)
-    tx.commit()
+    with connection.begin():
+        connection.execute(
+            sa.text(
+                'DROP SCHEMA IF EXISTS {} CASCADE'.format(schema_name)
+            )
+        )
+        versioning_manager.transaction_cls.__table__.create(connection)
+        versioning_manager.activity_cls.__table__.create(connection)
+        base.metadata.create_all(connection)
+
     yield
     session.expunge_all()
     base.metadata.drop_all(connection)

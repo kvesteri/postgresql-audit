@@ -3,9 +3,8 @@ import os
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import close_all_sessions, declarative_base, sessionmaker
 
 from postgresql_audit import VersioningManager
 
@@ -45,10 +44,12 @@ def engine(dns):
 
 @pytest.fixture
 def connection(engine):
-    conn = engine.connect()
-    conn.execute('CREATE EXTENSION IF NOT EXISTS btree_gist')
-    yield conn
-    conn.close()
+    with engine.connect() as conn:
+        with conn.begin():
+            conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
+        
+        yield conn
+        conn.close()
 
 
 @pytest.fixture
@@ -57,7 +58,7 @@ def session(connection):
     session = Session()
     yield session
     session.expunge_all()
-    session.close_all()
+    close_all_sessions()
 
 
 @pytest.fixture
