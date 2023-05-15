@@ -43,9 +43,7 @@ class VersioningManager(BaseVersioningManager):
     @property
     def default_client_addr(self):
         # Return None if we are outside of request context.
-        if not has_request_context():
-            return
-        return request.remote_addr or None
+        return (request and request.remote_addr) or None
 
 
 def merge_dicts(a, b):
