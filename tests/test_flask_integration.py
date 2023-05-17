@@ -29,7 +29,7 @@ def login_manager():
 def app(dns, db, login_manager, user_class, article_class):
     @login_manager.user_loader
     def load_user(id):
-        user = db.session.query(user_class).get(id)
+        user = db.session.get(user_class, id)
         return user
 
     application = Flask(__name__)
