@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base, synonym_for
+from sqlalchemy.orm import declarative_base, synonym_for
 
 from postgresql_audit import VersioningManager
 
