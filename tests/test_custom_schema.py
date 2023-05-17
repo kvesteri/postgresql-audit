@@ -2,7 +2,7 @@
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 from postgresql_audit import VersioningManager
 
