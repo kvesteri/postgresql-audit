@@ -191,27 +191,23 @@ def add_column(conn, table, column_name, default_value=None, schema=None):
         .update()
         .values(
             old_data=sa.case(
-                [
-                    (
-                        sa.cast(activity_table.c.old_data, sa.Text) != '{}',
-                        activity_table.c.old_data + data
-                    ),
-                ],
+                (
+                    sa.cast(activity_table.c.old_data, sa.Text) != '{}',
+                    activity_table.c.old_data + data
+                ),
                 else_=sa.cast({}, JSONB)
             ),
             changed_data=sa.case(
-                [
-                    (
-                        sa.and_(
-                            sa.cast(
-                                activity_table.c.changed_data,
-                                sa.Text
-                            ) != '{}',
-                            activity_table.c.verb != 'update'
-                        ),
-                        activity_table.c.changed_data + data
-                    )
-                ],
+                (
+                    sa.and_(
+                        sa.cast(
+                            activity_table.c.changed_data,
+                            sa.Text
+                        ) != '{}',
+                        activity_table.c.verb != 'update'
+                    ),
+                    activity_table.c.changed_data + data
+                ),
                 else_=activity_table.c.changed_data
             ),
         )
