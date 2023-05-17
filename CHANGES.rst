@@ -6,7 +6,11 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 0.15.0 (2023-05-15)
 ^^^^^^^^^^^^^^^^^^^
 
-- **BREAKING CHANGE**: flask.activity_values doesn't require request context (#75, courtesy of tvuotila)
+- **BREAKING CHANGE**: ``flask.activity_values`` doesn't require request context (#75, courtesy of tvuotila)
+- **BREAKING CHANGE**: Drop support for Python 3.7
+- Fix some SQLAlchemy 2.0 deprecation warnings (#76, courtesy of tchapi)
+- Remove unnecessary checks for Flask request context
+- Remove unnecessary ``__future__`` import
 
 0.14.1 (2023-04-26)
 ^^^^^^^^^^^^^^^^^^^
