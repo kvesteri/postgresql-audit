@@ -238,26 +238,12 @@ class VersioningManager(object):
         return temp
 
     def create_operators(self, target, bind, **kwargs):
-        if bind.dialect.server_version_info < (9, 5, 0):
-            StatementExecutor(self.render_tmpl('operators_pre95.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (9, 6, 0):
-            StatementExecutor(self.render_tmpl('operators_pre96.sql'))(
-                target, bind, **kwargs
-            )
-        if bind.dialect.server_version_info < (10, 0):
-            operators_template = self.render_tmpl('operators_pre100.sql')
-            StatementExecutor(operators_template)(target, bind, **kwargs)
         operators_template = self.render_tmpl('operators.sql')
         StatementExecutor(operators_template)(target, bind, **kwargs)
 
     def create_audit_table(self, target, bind, **kwargs):
         sql = ''
-        if (
-            self.use_statement_level_triggers and
-            bind.dialect.server_version_info >= (10, 0)
-        ):
+        if self.use_statement_level_triggers:
             sql += self.render_tmpl('create_activity_stmt_level.sql')
             sql += self.render_tmpl('audit_table_stmt_level.sql')
         else:

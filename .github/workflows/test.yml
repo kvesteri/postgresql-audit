@@ -49,7 +49,7 @@ jobs:
 
           - name: "Minimum versions"
             python: "3.8"
-            postgresql-version: 9.5
+            postgresql-version: 11
             tox: py-sqla1.4-flask-sqla2.5
 
     steps:
