@@ -62,11 +62,6 @@ def versioning_manager(db):
 
 
 @pytest.fixture
-def activity_cls(versioning_manager):
-    return versioning_manager.activity_cls
-
-
-@pytest.fixture
 def table_creator(app, db, models, activity_cls, versioning_manager):
     with app.app_context():
         db.configure_mappers()

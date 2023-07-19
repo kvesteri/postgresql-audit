@@ -47,9 +47,7 @@ def connection(engine):
     with engine.connect() as conn:
         with conn.begin():
             conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
-        
         yield conn
-        conn.close()
 
 
 @pytest.fixture
@@ -62,8 +60,13 @@ def session(connection):
 
 
 @pytest.fixture
-def versioning_manager(base):
-    vm = VersioningManager()
+def schema_name():
+    return None
+
+
+@pytest.fixture
+def versioning_manager(base, schema_name):
+    vm = VersioningManager(schema_name=schema_name)
     vm.init(base)
     yield vm
     vm.remove_listeners()
