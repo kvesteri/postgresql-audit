@@ -196,7 +196,6 @@ class VersioningManager(object):
         self.schema_name = schema_name
         self.table_listeners = self.get_table_listeners()
         self.pending_classes = WeakSet()
-        self.cached_ddls = {}
         self.use_statement_level_triggers = use_statement_level_triggers
 
     def get_transaction_values(self):
