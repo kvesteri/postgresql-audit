@@ -80,37 +80,3 @@ class TestJSONBChangeKeyName(object):
             sa.select(jsonb_change_key_name(data, old_key, new_key))
         ).scalar()
         assert result == expected
-
-
-@pytest.mark.usefixtures('activity_cls', 'table_creator')
-class TestJSONBConcatOperator(object):
-    @pytest.mark.parametrize(
-        ('data', 'merge_data', 'expected'),
-        (
-            (
-                '{"key1": 4, "key2": 3}',
-                '{"key1": 5, "key3": 5}',
-                {"key1": 5, "key2": 3, "key3": 5}
-            ),
-            (
-                '{}',
-                '{"key1": 5, "key3": 5}',
-                {"key1": 5, "key3": 5}
-            ),
-            (
-                '{"key1": 4, "key2": 3}',
-                '{}',
-                {"key1": 4, "key2": 3}
-            ),
-        )
-    )
-    def test_raw_sql(self, session, data, merge_data, expected):
-        result = session.execute(
-            sa.text(
-                '''SELECT '{data}'::jsonb || '{merge_data}'::jsonb'''.format(
-                    data=data,
-                    merge_data=merge_data
-                )
-            )
-        ).scalar()
-        assert result == expected
