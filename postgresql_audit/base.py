@@ -19,7 +19,6 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-cached_statements = {}
 
 
 class ImproperlyConfigured(Exception):
@@ -289,9 +288,7 @@ class VersioningManager(object):
         else:
             func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
         query = sa.select(func(*args))
-        if query not in cached_statements:
-            cached_statements[query] = StatementExecutor(query)
-        listener = (table, 'after_create', cached_statements[query])
+        listener = (table, 'after_create', StatementExecutor(query))
         if not sa.event.contains(*listener):
             sa.event.listen(*listener)
 
