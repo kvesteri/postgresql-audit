@@ -3,8 +3,8 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-0.16.0 (not yet released)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+0.16.0 (2023-08-04)
+^^^^^^^^^^^^^^^^^^^
 
 - **BREAKING CHANGE**: Drop support for PostgreSQL 9.5, 9.6 and 10, which have reached end of their lives.
 - Add support for SQLAlchemy 2.0
