@@ -49,8 +49,8 @@ def engine(dns):
 
 @pytest.fixture
 def session(engine):
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    Session = sessionmaker(bind=engine, future=True)
+    session = Session(future=True)
     yield session
     session.expunge_all()
     close_all_sessions()
