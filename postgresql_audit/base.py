@@ -29,16 +29,6 @@ class ClassNotVersioned(Exception):
     pass
 
 
-class StatementExecutor(object):
-    def __init__(self, stmt):
-        self.stmt = stmt
-
-    def __call__(self, target, bind, **kwargs):
-        tx = bind.begin()
-        bind.execute(self.stmt)
-        tx.commit()
-
-
 def read_file(file_):
     with open(os.path.join(HERE, file_)) as f:
         s = f.read()
@@ -236,8 +226,7 @@ class VersioningManager(object):
         return temp
 
     def create_operators(self, target, bind, **kwargs):
-        operators_template = self.render_tmpl('operators.sql')
-        StatementExecutor(operators_template)(target, bind, **kwargs)
+        bind.execute(self.render_tmpl('operators.sql'))
 
     def create_audit_table(self, target, bind, **kwargs):
         sql = ''
@@ -247,7 +236,7 @@ class VersioningManager(object):
         else:
             sql += self.render_tmpl('create_activity_row_level.sql')
             sql += self.render_tmpl('audit_table_row_level.sql')
-        StatementExecutor(sql)(target, bind, **kwargs)
+        bind.execute(sql)
 
     def get_table_listeners(self):
         listeners = {'transaction': []}
@@ -288,9 +277,10 @@ class VersioningManager(object):
         else:
             func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
         query = sa.select(func(*args))
-        listener = (table, 'after_create', StatementExecutor(query))
-        if not sa.event.contains(*listener):
-            sa.event.listen(*listener)
+
+        @sa.event.listens_for(table, 'after_create')
+        def receive_after_create(target, connection, **kw):
+            connection.execute(query)
 
     def set_activity_values(self, session):
         transaction_mapper = sa.inspect(self.transaction_cls)
