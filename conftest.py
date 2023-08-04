@@ -36,7 +36,7 @@ def base():
 
 @pytest.fixture
 def engine(dns):
-    engine = create_engine(dns)
+    engine = create_engine(dns, future=True)
     engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
 
     with engine.begin() as conn:
