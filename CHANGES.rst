@@ -7,6 +7,7 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **BREAKING CHANGE**: Drop support for PostgreSQL 9.5, 9.6 and 10, which have reached end of their lives.
+- Add support for SQLAlchemy 2.0
 - Remove unused ``VersioningManager.cached_ddls`` attribute
 - Removed redundant statement caching from ``VersioningManager.audit_table``
 

@@ -30,22 +30,22 @@ jobs:
           - name: "Python 3.11"
             python: "3.11"
             postgresql-version: 12
-            tox: py-sqla1.4-flask-sqla3.0
+            tox: py-sqla2.0-flask-sqla3.0
 
           - name: "Python 3.10"
             python: "3.10"
             postgresql-version: 12
-            tox: py-sqla1.4-flask-sqla3.0
+            tox: py-sqla2.0-flask-sqla3.0
 
           - name: "Python 3.9"
             python: "3.9"
             postgresql-version: 12
-            tox: py-sqla1.4-flask-sqla3.0
+            tox: py-sqla2.0-flask-sqla3.0
 
           - name: "Python 3.8"
             python: "3.8"
             postgresql-version: 12
-            tox: py-sqla1.4-flask-sqla3.0
+            tox: py-sqla2.0-flask-sqla3.0
 
           - name: "Minimum versions"
             python: "3.8"
