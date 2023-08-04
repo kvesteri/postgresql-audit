@@ -9,14 +9,15 @@ from .utils import last_activity
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
-    def audit_trigger_creator(self, session, user_class):
-        session.execute(
-            text(
-                '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
-                    user_class.__tablename__
+    def audit_trigger_creator(self, engine, user_class):
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    '''SELECT audit_table('{0}', '{{"age"}}')'''.format(
+                        user_class.__tablename__
+                    )
                 )
             )
-        )
 
     @pytest.fixture
     def user(self, session, user_class, audit_trigger_creator):
@@ -25,8 +26,8 @@ class TestActivityCreationWithColumnExclusion(object):
         session.flush()
         return user
 
-    def test_insert(self, user, connection):
-        activity = last_activity(connection)
+    def test_insert(self, user, session):
+        activity = last_activity(session)
         assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
