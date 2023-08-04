@@ -209,7 +209,7 @@ class VersioningManager(object):
     def render_tmpl(self, tmpl_name):
         file_contents = read_file(
             'templates/{}'.format(tmpl_name)
-        ).replace('%', '%%').replace('$$', '$$$$')
+        ).replace('$$', '$$$$')
         tmpl = string.Template(file_contents)
         context = dict(schema_name=self.schema_name)
 
@@ -226,7 +226,7 @@ class VersioningManager(object):
         return temp
 
     def create_operators(self, target, bind, **kwargs):
-        bind.execute(self.render_tmpl('operators.sql'))
+        bind.execute(text(self.render_tmpl('operators.sql')))
 
     def create_audit_table(self, target, bind, **kwargs):
         sql = ''
@@ -236,7 +236,7 @@ class VersioningManager(object):
         else:
             sql += self.render_tmpl('create_activity_row_level.sql')
             sql += self.render_tmpl('audit_table_row_level.sql')
-        bind.execute(sql)
+        bind.execute(text(sql))
 
     def get_table_listeners(self):
         listeners = {'transaction': []}
