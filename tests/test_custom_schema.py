@@ -16,8 +16,9 @@ def schema_name():
 
 @pytest.mark.usefixtures('versioning_manager', 'table_creator')
 class TestCustomSchemaactivityCreation(object):
-    def test_insert(self, user, connection, schema_name):
-        activity = last_activity(connection, schema=schema_name)
+    def test_insert(self, user, engine, schema_name):
+        with engine.begin() as connection:
+            activity = last_activity(connection, schema=schema_name)
         assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,

@@ -38,21 +38,18 @@ def base():
 def engine(dns):
     engine = create_engine(dns)
     engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
+
+    with engine.begin() as conn:
+        conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
+
     yield engine
+
     engine.dispose()
 
 
 @pytest.fixture
-def connection(engine):
-    with engine.connect() as conn:
-        with conn.begin():
-            conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
-        yield conn
-
-
-@pytest.fixture
-def session(connection):
-    Session = sessionmaker(bind=connection)
+def session(engine):
+    Session = sessionmaker(bind=engine)
     session = Session()
     yield session
     session.expunge_all()
@@ -116,21 +113,20 @@ def models(user_class, article_class):
 def table_creator(
     base,
     versioning_manager,
-    connection,
-    session,
+    engine,
     models
 ):
     sa.orm.configure_mappers()
-    tx = connection.begin()
-    versioning_manager.transaction_cls.__table__.create(connection)
-    versioning_manager.activity_cls.__table__.create(connection)
-    base.metadata.create_all(connection)
-    tx.commit()
-    session.commit()
+
+    with engine.begin() as connection:
+        versioning_manager.transaction_cls.__table__.create(connection)
+        versioning_manager.activity_cls.__table__.create(connection)
+        base.metadata.create_all(connection)
+
     yield
-    session.expunge_all()
-    base.metadata.drop_all(connection)
-    session.commit()
+
+    with engine.begin() as connection:
+        base.metadata.drop_all(connection)
 
 
 @pytest.fixture

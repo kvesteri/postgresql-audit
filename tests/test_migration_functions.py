@@ -19,18 +19,20 @@ class TestRenameTable(object):
         session,
         article,
         user,
-        connection,
+        engine,
         versioning_manager
     ):
-        rename_table(connection, 'user', 'user2')
+        with engine.begin() as connection:
+            rename_table(connection, 'user', 'user2')
         activity = session.query(versioning_manager.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert activity
 
-    def test_updates_table_name(self, session, user, connection):
-        rename_table(connection, 'user', 'user2')
-        activity = last_activity(connection)
+    def test_updates_table_name(self, session, user, engine):
+        with engine.begin() as connection:
+            rename_table(connection, 'user', 'user2')
+            activity = last_activity(connection)
         assert activity['table_name'] == 'user2'
 
 
@@ -41,29 +43,32 @@ class TestChangeColumnName(object):
         session,
         article,
         user,
-        connection,
+        engine,
         versioning_manager
     ):
-        change_column_name(connection, 'user', 'name', 'some_name')
+        with engine.begin() as connection:
+            change_column_name(connection, 'user', 'name', 'some_name')
         activity = session.query(versioning_manager.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'name' in activity.changed_data
 
-    def test_updates_changed_data(self, session, user, connection):
-        change_column_name(connection, 'user', 'name', 'some_name')
-        activity = last_activity(connection)
+    def test_updates_changed_data(self, session, user, engine):
+        with engine.begin() as connection:
+            change_column_name(connection, 'user', 'name', 'some_name')
+            activity = last_activity(connection)
         assert activity['changed_data'] == {
             'id': user.id,
             'some_name': 'John',
             'age': 15
         }
 
-    def test_updates_old_data(self, session, user, connection):
+    def test_updates_old_data(self, session, user, engine):
         user.name = 'Luke'
         session.commit()
-        change_column_name(connection, 'user', 'name', 'some_name')
-        activity = last_activity(connection)
+        with engine.begin() as connection:
+            change_column_name(connection, 'user', 'name', 'some_name')
+            activity = last_activity(connection)
         assert activity['old_data'] == {
             'id': user.id,
             'some_name': 'John',
@@ -78,29 +83,32 @@ class TestRemoveColumn(object):
         session,
         article,
         user,
-        connection,
+        engine,
         versioning_manager
     ):
-        remove_column(connection, 'user', 'name')
+        with engine.begin() as connection:
+            remove_column(connection, 'user', 'name')
         activity = session.query(versioning_manager.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'name' in activity.changed_data
 
-    def test_updates_changed_data(self, session, user, connection):
-        remove_column(connection, 'user', 'name')
-        activity = last_activity(connection)
+    def test_updates_changed_data(self, session, user, engine):
+        with engine.begin() as connection:
+            remove_column(connection, 'user', 'name')
+            activity = last_activity(connection)
         assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
             'age': 15
         }
 
-    def test_updates_old_data(self, session, user, connection):
+    def test_updates_old_data(self, session, user, engine):
         user.name = 'Luke'
         session.commit()
-        remove_column(connection, 'user', 'name')
-        activity = last_activity(connection)
+        with engine.begin() as connection:
+            remove_column(connection, 'user', 'name')
+            activity = last_activity(connection)
         assert activity['old_data'] == {
             'id': user.id,
             'age': 15
@@ -114,18 +122,20 @@ class TestAddColumn(object):
         session,
         article,
         user,
-        connection,
+        engine,
         versioning_manager
     ):
-        add_column(connection, 'user', 'some_column')
+        with engine.begin() as connection:
+            add_column(connection, 'user', 'some_column')
         activity = session.query(versioning_manager.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'some_column' not in activity.changed_data
 
-    def test_updates_changed_data(self, session, user, connection):
-        add_column(connection, 'user', 'some_column')
-        activity = last_activity(connection)
+    def test_updates_changed_data(self, session, user, engine):
+        with engine.begin() as connection:
+            add_column(connection, 'user', 'some_column')
+            activity = last_activity(connection)
         assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
@@ -134,11 +144,12 @@ class TestAddColumn(object):
             'some_column': None
         }
 
-    def test_updates_old_data(self, session, user, connection):
+    def test_updates_old_data(self, session, user, engine):
         user.name = 'Luke'
         session.commit()
-        add_column(connection, 'user', 'some_column')
-        activity = last_activity(connection)
+        with engine.begin() as connection:
+            add_column(connection, 'user', 'some_column')
+            activity = last_activity(connection)
         assert activity['old_data'] == {
             'id': user.id,
             'age': 15,
@@ -155,44 +166,47 @@ class TestAlterColumn(object):
         session,
         article,
         user,
-        connection,
+        engine,
         versioning_manager
     ):
-        alter_column(
-            connection,
-            'user',
-            'id',
-            lambda value, activity_table: sa.cast(value, sa.Text)
-        )
+        with engine.begin() as connection:
+            alter_column(
+                connection,
+                'user',
+                'id',
+                lambda value, activity_table: sa.cast(value, sa.Text)
+            )
         activity = session.query(versioning_manager.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert isinstance(activity.changed_data['id'], int)
 
-    def test_updates_changed_data(self, session, user, connection):
-        alter_column(
-            connection,
-            'user',
-            'id',
-            lambda value, activity_table: sa.cast(value, sa.Text)
-        )
-        activity = last_activity(connection)
+    def test_updates_changed_data(self, session, user, engine):
+        with engine.begin() as connection:
+            alter_column(
+                connection,
+                'user',
+                'id',
+                lambda value, activity_table: sa.cast(value, sa.Text)
+            )
+            activity = last_activity(connection)
         assert activity['changed_data'] == {
             'id': str(user.id),
             'age': 15,
             'name': 'John'
         }
 
-    def test_updates_old_data(self, session, user, connection):
+    def test_updates_old_data(self, session, user, engine):
         user.name = 'Luke'
         session.commit()
-        alter_column(
-            connection,
-            'user',
-            'id',
-            lambda value, activity_table: sa.cast(value, sa.Text)
-        )
-        activity = last_activity(connection)
+        with engine.begin() as connection:
+            alter_column(
+                connection,
+                'user',
+                'id',
+                lambda value, activity_table: sa.cast(value, sa.Text)
+            )
+            activity = last_activity(connection)
         assert activity['old_data'] == {
             'id': str(user.id),
             'age': 15,
