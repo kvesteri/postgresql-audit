@@ -40,7 +40,6 @@ path = "postgresql_audit/__init__.py"
 [tool.hatch.build.targets.sdist]
 include = [
     "/CHANGES.rst",
-    "/conftest.py",
     "/docs",
     "/postgresql_audit",
     "/tests",
