@@ -3,6 +3,11 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+Unreleased
+^^^^^^^^^^
+
+- Use the ``pyproject.toml`` standard to specify project metadata, dependencies and tool configuration. Use Hatch to build the project.
+
 0.16.0 (2023-08-04)
 ^^^^^^^^^^^^^^^^^^^
 

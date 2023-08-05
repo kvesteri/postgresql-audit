@@ -1,0 +1,56 @@
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PostgreSQL-Audit"
+dynamic = ["version"]
+description = "Versioning and auditing extension for PostgreSQL and SQLAlchemy."
+readme = "README.rst"
+license = "bsd-2-clause"
+requires-python = ">=3.8"
+authors = [
+    { name = "Konsta Vesterinen", email = "konsta@fastmonkeys.com" },
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "SQLAlchemy-Utils>=0.37.0",
+    "SQLAlchemy>=1.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/kvesteri/postgresql-audit"
+
+[tool.hatch.version]
+path = "postgresql_audit/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/CHANGES.rst",
+    "/conftest.py",
+    "/docs",
+    "/postgresql_audit",
+    "/tests",
+]
+exclude = [
+    "/docs/_build",
+]
+
+[tool.isort]
+known_first_party = ["postgresql_audit", "tests"]
+line_length       = 79
+multi_line_output = 3
+order_by_type     = false
