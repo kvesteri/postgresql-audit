@@ -26,7 +26,7 @@ def db_name():
 
 @pytest.fixture
 def dns(db_user, db_password, db_name):
-    return 'postgresql://{}:{}@localhost/{}'.format(db_user, db_password, db_name)
+    return f'postgresql://{db_user}:{db_password}@localhost/{db_name}'
 
 
 @pytest.fixture
