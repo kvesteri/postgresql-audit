@@ -32,8 +32,6 @@ Adding columns
 .. autofunction:: add_column
 
 
-.. autoclass:: jsonb_merge
-
 .. autoclass:: jsonb_change_key_name
 
 
