@@ -1,13 +1,16 @@
 SQLAlchemy integration
 ======================
 
+SQLAlchemy_ integration offers easy way of using PostgreSQL-Audit with
+SQLAlchemy ORM. It has the following features:
 
-SQLAlchemy integration offers easy way of using PostgreSQL-Audit with SQLAlchemy ORM. It has the following features:
+* Automatically marks all declarative classes, which have ``__versioned__``
+  class property defined, as versioned.
+* Attaches :meth:`~sqlalchemy.events.DDLEvents.after_create` DDL listeners that
+  create versioning triggers for all versioned tables.
+* Provides ``Activity`` model for easy ORM level access of activities.
 
-* Automatically marks all declarative classes which have `__versioned__` class property defined as versioned.
-* Attaches after_create DDL listeners that create versioning triggers for all versioned tables.
-* Provides Activity model for easy ORM level access of activities
-
+.. _SQLAlchemy: https://www.sqlalchemy.org
 
 .. code-block:: python
 
@@ -33,9 +36,8 @@ SQLAlchemy integration offers easy way of using PostgreSQL-Audit with SQLAlchemy
 Excluding columns
 -----------------
 
-You can easily exclude columns from being versioned by adding them as a list to 'exclude' key of `__versioned__` dict.
-
-.. code-block:: python
+You can easily exclude columns from being versioned by adding them as a list to
+the ``'exclude'`` key of ``__versioned__`` dict::
 
     class Article(Base):
         __tablename__ = 'article'
@@ -48,10 +50,8 @@ You can easily exclude columns from being versioned by adding them as a list to 
 Versioning many-to-many tables
 ------------------------------
 
-Versioning Table objects is easy. Just call audit_table method with the desired table.
-
-.. code-block:: python
-
+Versioning :class:`~sqlalchemy.schema.Table` objects is easy. Just call
+``audit_table`` method with the desired table::
 
     class User(Base):
         __tablename__ = 'user'
@@ -91,9 +91,7 @@ Versioning Table objects is easy. Just call audit_table method with the desired 
 Tracking inserts
 ----------------
 
-Now we can check the newly created activity.
-
-.. code-block:: python
+Now we can check the newly created activity::
 
     Activity = versioning_manager.activity_cls
 
@@ -107,7 +105,6 @@ Now we can check the newly created activity.
 
 Tracking updates
 ----------------
-
 
 .. code-block:: python
 
@@ -125,7 +122,6 @@ Tracking updates
 Tracking deletes
 ----------------
 
-
 .. code-block:: python
 
     session.delete(article)
@@ -142,12 +138,11 @@ Tracking deletes
 Finding history of specific record
 ----------------------------------
 
-In this example we want to find all changes made to article with id=3. The query
-is a bit complex since we have to check `old_data` and `changed_data` separately. Luckily
-the Activity model has a hybrid_property_ called `data` which is a combination of these two.
-Hence you can get the desired activities as follows:
-
-.. code-block:: python
+In this example, we want to find all changes made to an ``Article`` entity. The
+query is a bit complex since we have to check ``old_data`` and ``changed_data``
+separately. Luckily, the ``Activity`` model has a
+:class:`~sqlalchemy.ext.hybrid.hybrid_property` called ``data`` which is a
+combination of these two. Hence, you can get the desired activities as follows::
 
     activities = session.query(Activity).filter(
         Activity.table_name == 'article',
@@ -155,15 +150,12 @@ Hence you can get the desired activities as follows:
     )
 
 
-.. _hybrid_property: http://docs.sqlalchemy.org/en/latest/orm/extensions/hybrid.html?highlight=hybrid#sqlalchemy.ext.hybrid.hybrid_property
+Temporarily disabling inserts to the ``activity`` table
+-------------------------------------------------------
 
-
-Temporarily disabling inserts to the `activity` table
------------------------------------------------------
-
-There are cases where you might not want to track changes to your data, such as when doing big changes to a table. In those cases you can use the `VersioningManager.disable` context manager.
-
-.. code-block:: python
+There are cases where you might not want to track changes to your data, such as
+when doing big changes to a table. In those cases, you can use the
+``VersioningManager.disable`` context manager::
 
     with versioning_manager.disable(session):
         for i in range(1, 10000):
