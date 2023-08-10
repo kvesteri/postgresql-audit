@@ -22,29 +22,28 @@ pip_::
 
     pip install postgresql-audit
 
-.. _pip: http://www.pip-installer.org/
+.. _pip: https://pip.pypa.io/
 
 Installing the development version
 ----------------------------------
 
-To install the latest version of PostgreSQL-Audit, you need first obtain a
-copy of the source. You can do that by cloning the git_ repository::
+To install the latest version of PostgreSQL-Audit, you need first to obtain a
+copy of the source. You can do that by cloning the Git_ repository::
 
     git clone git://github.com/kvesteri/postgresql-audit.git
 
-Then you can install the source distribution using the ``setup.py``
-script::
+Then, you can install the source distribution using pip::
 
     cd postgresql-audit
-    python setup.py install
+    pip install -e .
 
-.. _git: http://git-scm.org/
+.. _Git: https://git-scm.org/
 
 Checking the installation
 -------------------------
 
 To check that PostgreSQL-Audit has been properly installed, type ``python``
-from your shell. Then at the Python prompt, try to import PostgreSQL-Audit,
+from your shell. Then, at the Python prompt, try to import PostgreSQL-Audit,
 and check the installed version:
 
 .. parsed-literal::
