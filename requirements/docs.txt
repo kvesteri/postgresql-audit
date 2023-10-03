@@ -18,12 +18,10 @@ charset-normalizer==3.2.0
 docutils==0.20.1
     # via sphinx
 furo==2023.7.26
-    # via -r requirements/docs.in
+    # via -r docs.in
 idna==3.4
     # via requests
 imagesize==1.4.1
-    # via sphinx
-importlib-metadata==6.8.0
     # via sphinx
 jinja2==3.1.2
     # via sphinx
@@ -43,7 +41,7 @@ soupsieve==2.4.1
     # via beautifulsoup4
 sphinx==7.1.2
     # via
-    #   -r requirements/docs.in
+    #   -r docs.in
     #   furo
     #   sphinx-basic-ng
 sphinx-basic-ng==1.0.0b2
@@ -60,7 +58,5 @@ sphinxcontrib-qthelp==1.0.3
     # via sphinx
 sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
-urllib3==2.0.4
+urllib3==2.0.6
     # via requests
-zipp==3.16.2
-    # via importlib-metadata
