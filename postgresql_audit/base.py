@@ -259,7 +259,7 @@ class VersioningManager(object):
             ]
         return listeners
 
-    def audit_table(self, table, exclude_columns=None):
+    def build_audit_table_query(self, table, exclude_columns=None):
         args = [table.name]
         if exclude_columns:
             for column in exclude_columns:
@@ -276,7 +276,12 @@ class VersioningManager(object):
             func = sa.func.audit_table
         else:
             func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
-        query = sa.select(func(*args))
+        return sa.select(func(*args))
+
+    def audit_table(self, table, exclude_columns=None):
+        query = self.build_audit_table_query(
+            table=table, exclude_columns=exclude_columns
+        )
 
         @sa.event.listens_for(table, 'after_create')
         def receive_after_create(target, connection, **kw):
