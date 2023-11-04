@@ -167,12 +167,12 @@ class VersioningManager(object):
         self.values = {}
         self.listeners = (
             (
-                orm.mapper,
+                orm.Mapper,
                 'instrument_class',
                 self.instrument_versioned_classes
             ),
             (
-                orm.mapper,
+                orm.Mapper,
                 'after_configured',
                 self.configure_versioned_classes
             ),
