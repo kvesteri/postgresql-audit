@@ -53,3 +53,8 @@ known_first_party = ["postgresql_audit", "tests"]
 line_length       = 79
 multi_line_output = 3
 order_by_type     = false
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    'error:.*:DeprecationWarning:postgresql_audit',
+]

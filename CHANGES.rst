@@ -7,6 +7,7 @@ Unreleased
 ^^^^^^^^^^
 
 - Use the ``pyproject.toml`` standard to specify project metadata, dependencies and tool configuration. Use Hatch to build the project.
+- Fix a deprecation warning about `sqlalchemy.orm.mapper()` symbol usage on SQLAlchemy 2.0.
 
 0.16.0 (2023-08-04)
 ^^^^^^^^^^^^^^^^^^^
