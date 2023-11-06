@@ -3,6 +3,12 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+0.17.1 (2023-11-06)
+^^^^^^^^^^^^^^^^^^^
+
+- Fix package name to be in lowercase in ``pyproject.toml``.
+
+
 0.17.0 (2023-11-04)
 ^^^^^^^^^^^^^^^^^^^
 

@@ -3,7 +3,7 @@ requires      = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "PostgreSQL-Audit"
+name = "postgresql-audit"
 dynamic = ["version"]
 description = "Versioning and auditing extension for PostgreSQL and SQLAlchemy."
 readme = "README.rst"
