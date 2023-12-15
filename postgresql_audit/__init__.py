@@ -1,6 +1,4 @@
 from .base import (  # noqa
-    activity_base,
-    assign_actor,
     ImproperlyConfigured,
     versioning_manager,
     VersioningManager

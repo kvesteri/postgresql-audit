@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from weakref import WeakSet
 
 import sqlalchemy as sa
-from sqlalchemy import orm, text
+from sqlalchemy import orm, text, literal_column
 from sqlalchemy.dialects.postgresql import (
     array,
     ExcludeConstraint,
@@ -33,117 +33,6 @@ def read_file(file_):
     with open(os.path.join(HERE, file_)) as f:
         s = f.read()
     return s
-
-
-def assign_actor(base, cls, actor_cls):
-    if hasattr(cls, 'actor_id'):
-        return
-    if actor_cls:
-        primary_key = sa.inspect(actor_cls).primary_key[0]
-
-        cls.actor_id = sa.Column('actor_id', primary_key.type)
-        cls.actor = orm.relationship(
-            actor_cls,
-            primaryjoin=cls.actor_id == (
-                getattr(
-                    actor_cls,
-                    primary_key.name
-                )
-            ),
-            foreign_keys=[cls.actor_id]
-        )
-    else:
-        cls.actor_id = sa.Column(sa.Text)
-
-
-def transaction_base(Base, schema):
-    class Transaction(Base):
-        __abstract__ = True
-        id = sa.Column(sa.BigInteger, primary_key=True)
-        native_transaction_id = sa.Column(sa.BigInteger)
-        issued_at = sa.Column(sa.DateTime)
-        client_addr = sa.Column(INET)
-
-        @declared_attr
-        def __table_args__(cls):
-            return (
-                ExcludeConstraint(
-                    (cls.native_transaction_id, '='),
-                    (
-                        sa.func.tsrange(
-                            cls.issued_at - sa.text("INTERVAL '1 hour'"),
-                            cls.issued_at,
-                        ),
-                        '&&'
-                    ),
-                    name='transaction_unique_native_tx_id'
-                ),
-                {'schema': schema}
-            )
-
-        def __repr__(self):
-            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
-                cls=self.__class__.__name__,
-                id=self.id,
-                issued_at=self.issued_at
-            )
-
-    return Transaction
-
-
-def activity_base(Base, schema, transaction_cls):
-
-    class ActivityBase(Base):
-        __abstract__ = True
-        __table_args__ = {'schema': schema}
-        id = sa.Column(sa.BigInteger, primary_key=True)
-        schema_name = sa.Column(sa.Text)
-        table_name = sa.Column(sa.Text)
-        relid = sa.Column(sa.Integer)
-        issued_at = sa.Column(sa.DateTime)
-        native_transaction_id = sa.Column(sa.BigInteger, index=True)
-        verb = sa.Column(sa.Text)
-        old_data = sa.Column(JSONB, default={}, server_default='{}')
-        changed_data = sa.Column(JSONB, default={}, server_default='{}')
-
-        @declared_attr
-        def transaction_id(cls):
-            return sa.Column(
-                sa.BigInteger,
-                sa.ForeignKey(transaction_cls.id)
-            )
-
-        @declared_attr
-        def transaction(cls):
-            return sa.orm.relationship(transaction_cls, backref='activities')
-
-        @hybrid_property
-        def data(self):
-            data = self.old_data.copy() if self.old_data else {}
-            if self.changed_data:
-                data.update(self.changed_data)
-            return data
-
-        @data.expression
-        def data(cls):
-            return cls.old_data + cls.changed_data
-
-        @property
-        def object(self):
-            table = Base.metadata.tables[self.table_name]
-            cls = get_class_by_table(Base, table, self.data)
-            return cls(**self.data)
-
-        def __repr__(self):
-            return (
-                '<{cls} table_name={table_name!r} '
-                'id={id!r}>'
-            ).format(
-                cls=self.__class__.__name__,
-                table_name=self.table_name,
-                id=self.id
-            )
-    return ActivityBase
 
 
 def convert_callables(values):
@@ -225,10 +114,10 @@ class VersioningManager(object):
         temp = tmpl.substitute(**context)
         return temp
 
-    def create_operators(self, target, bind, **kwargs):
-        bind.execute(text(self.render_tmpl('operators.sql')))
+    def operators_sql(self):
+        return text(self.render_tmpl('operators.sql'))
 
-    def create_audit_table(self, target, bind, **kwargs):
+    def audit_table_sql(self):
         sql = ''
         if self.use_statement_level_triggers:
             sql += self.render_tmpl('create_activity_stmt_level.sql')
@@ -236,7 +125,14 @@ class VersioningManager(object):
         else:
             sql += self.render_tmpl('create_activity_row_level.sql')
             sql += self.render_tmpl('audit_table_row_level.sql')
-        bind.execute(text(sql))
+
+        return text(sql)
+
+    def create_operators(self, target, bind, **kwargs):
+        bind.execute(self.operators_sql())
+
+    def create_audit_table(self, target, bind, **kwargs):
+        bind.execute(self.audit_table_sql())
 
     def get_table_listeners(self):
         listeners = {'transaction': []}
@@ -288,6 +184,7 @@ class VersioningManager(object):
             connection.execute(query)
 
     def set_activity_values(self, session):
+        # from pprint import pprint as pp; import ipdb; ipdb.set_trace()
         transaction_mapper = sa.inspect(self.transaction_cls)
         engine = session.get_bind(transaction_mapper)
         dialect = engine.dialect
@@ -369,7 +266,6 @@ class VersioningManager(object):
         """
         for cls in self.pending_classes:
             self.audit_table(cls.__table__, cls.__versioned__.get('exclude'))
-        assign_actor(self.base, self.transaction_cls, self.actor_cls)
 
     def attach_table_listeners(self):
         for values in self.table_listeners['transaction']:
@@ -417,17 +313,88 @@ class VersioningManager(object):
         for listener in self.listeners:
             sa.event.remove(*listener)
 
-    def activity_model_factory(self, base, transaction_cls):
-        class Activity(activity_base(base, self.schema_name, transaction_cls)):
+    def activity_model_factory(self, Base, transaction_cls):
+        class AuditLogActivity(Base):
             __tablename__ = 'activity'
+            __table_args__ = {'schema': self.schema_name}
 
-        return Activity
+            id = sa.Column(sa.BigInteger, primary_key=True)
+            schema_name = sa.Column(sa.Text)
+            table_name = sa.Column(sa.Text)
+            relid = sa.Column(sa.Integer)
+            issued_at = sa.Column(sa.DateTime)
+            native_transaction_id = sa.Column(sa.BigInteger, index=True)
+            verb = sa.Column(sa.Text)
+            old_data = sa.Column(JSONB, default={}, server_default='{}')
+            changed_data = sa.Column(JSONB, default={}, server_default='{}')
+
+            @declared_attr
+            def transaction_id(cls):
+                return sa.Column(
+                    sa.BigInteger,
+                    sa.ForeignKey(transaction_cls.id)
+                )
+
+            @declared_attr
+            def transaction(cls):
+                return sa.orm.relationship(transaction_cls, backref='activities')
+
+            @hybrid_property
+            def data(self):
+                data = self.old_data.copy() if self.old_data else {}
+                if self.changed_data:
+                    data.update(self.changed_data)
+                return data
+
+            @data.expression
+            def data(cls):
+                return cls.old_data + cls.changed_data
+
+            @property
+            def object(self):
+                table = Base.metadata.tables[self.table_name]
+                cls = get_class_by_table(Base, table, self.data)
+                return cls(**self.data)
+
+            def __repr__(self):
+                return (
+                    '<{cls} table_name={table_name!r} '
+                    'id={id!r}>'
+                ).format(
+                    cls=self.__class__.__name__,
+                    table_name=self.table_name,
+                    id=self.id
+                )
+
+        return AuditLogActivity
 
     def transaction_model_factory(self, base):
-        class Transaction(transaction_base(base, self.schema_name)):
+        class AuditLogTransaction(base):
             __tablename__ = 'transaction'
 
-        return Transaction
+            id = sa.Column(sa.BigInteger, primary_key=True)
+            native_transaction_id = sa.Column(sa.BigInteger)
+            issued_at = sa.Column(sa.DateTime)
+            client_addr = sa.Column(INET)
+            actor_id = sa.Column(sa.Text)
+
+            __table_args__ = (
+                ExcludeConstraint(
+                    (literal_column('native_transaction_id'), '='),
+                    (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
+                    name='transaction_unique_native_tx_id'
+                ),
+                {'schema': self.schema_name}
+            )
+
+            def __repr__(self):
+                return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
+                    cls=self.__class__.__name__,
+                    id=self.id,
+                    issued_at=self.issued_at
+                )
+
+        return AuditLogTransaction
 
     def init(self, base):
         self.base = base
