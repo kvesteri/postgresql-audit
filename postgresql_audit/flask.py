@@ -4,10 +4,10 @@ from copy import copy
 from flask import g, request
 from sqlalchemy import text
 
-from .base import VersioningManager as BaseVersioningManager
+from .base import AuditLogger as BaseAuditLogger
 
 
-class VersioningManager(BaseVersioningManager):
+class AuditLogger(BaseAuditLogger):
     _actor_cls = None
     _get_actor_id = None
     _get_client_addr = None
@@ -103,4 +103,4 @@ def activity_values(**values):
         g.activity_values = previous_value
 
 
-versioning_manager = VersioningManager()
+audit_logger = AuditLogger()

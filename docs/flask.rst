@@ -20,12 +20,12 @@ integration provides along with:
 .. code-block:: python
 
 
-    from postgresql_audit.flask import versioning_manager
+    from postgresql_audit.flask import audit_logger
 
     from my_app.extensions import db
 
 
-    versioning_manager.init(db.Model)
+    audit_logger.init(db.Model)
 
 
     class Article(db.Model):
@@ -50,12 +50,12 @@ For example, consider the following model structure with ``Article`` and
 ``Tag``. Let's say we want to show the changelog of an article that contains all
 changes to this article and its tags::
 
-    from postgresql_audit.flask import versioning_manager
+    from postgresql_audit.flask import audit_logger
 
     from my_app.extensions import db
 
 
-    versioning_manager.init(db.Model)
+    audit_logger.init(db.Model)
 
 
     class Article(db.Model):
@@ -94,7 +94,7 @@ the ``target_id`` so that we can track them later on::
 
 Now, we can find all activities for an article with the following query::
 
-    Activity = versioning_manager.activity_cls
+    Activity = audit_logger.activity_cls
 
     activities = Activity.query.filter(
         db.or_(

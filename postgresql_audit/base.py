@@ -42,7 +42,7 @@ def convert_callables(values):
     }
 
 
-class VersioningManager(object):
+class AuditLogger(object):
     _actor_cls = None
 
     def __init__(
@@ -58,12 +58,7 @@ class VersioningManager(object):
             (
                 orm.Mapper,
                 'instrument_class',
-                self.instrument_versioned_classes
-            ),
-            (
-                orm.Mapper,
-                'after_configured',
-                self.configure_versioned_classes
+                self.detect_versioned_models
             ),
             (
                 orm.session.Session,
@@ -72,8 +67,7 @@ class VersioningManager(object):
             ),
         )
         self.schema_name = schema_name
-        self.table_listeners = self.get_table_listeners()
-        self.pending_classes = WeakSet()
+        self.versioned_models = set()
         self.use_statement_level_triggers = use_statement_level_triggers
 
     def get_transaction_values(self):
@@ -128,33 +122,6 @@ class VersioningManager(object):
 
         return text(sql)
 
-    def create_operators(self, target, bind, **kwargs):
-        bind.execute(self.operators_sql())
-
-    def create_audit_table(self, target, bind, **kwargs):
-        bind.execute(self.audit_table_sql())
-
-    def get_table_listeners(self):
-        listeners = {'transaction': []}
-
-        listeners['activity'] = [
-            ('after_create', sa.schema.DDL(
-                self.render_tmpl('jsonb_change_key_name.sql')
-            )),
-            ('after_create', self.create_audit_table),
-            ('after_create', self.create_operators)
-        ]
-        if self.schema_name is not None:
-            listeners['transaction'] = [
-                ('before_create', sa.schema.DDL(
-                    self.render_tmpl('create_schema.sql')
-                )),
-                ('after_drop', sa.schema.DDL(
-                    self.render_tmpl('drop_schema.sql')
-                )),
-            ]
-        return listeners
-
     def build_audit_table_query(self, table, exclude_columns=None):
         args = [table.name]
         if exclude_columns:
@@ -174,17 +141,7 @@ class VersioningManager(object):
             func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
         return sa.select(func(*args))
 
-    def audit_table(self, table, exclude_columns=None):
-        query = self.build_audit_table_query(
-            table=table, exclude_columns=exclude_columns
-        )
-
-        @sa.event.listens_for(table, 'after_create')
-        def receive_after_create(target, connection, **kw):
-            connection.execute(query)
-
-    def set_activity_values(self, session):
-        # from pprint import pprint as pp; import ipdb; ipdb.set_trace()
+    def save_transaction(self, session):
         transaction_mapper = sa.inspect(self.transaction_cls)
         engine = session.get_bind(transaction_mapper)
         dialect = engine.dialect
@@ -247,37 +204,18 @@ class VersioningManager(object):
 
     def receive_before_flush(self, session, flush_context, instances):
         if self.is_modified(session):
-            self.set_activity_values(session)
+            self.save_transaction(session)
 
-    def instrument_versioned_classes(self, mapper, cls):
+    def detect_versioned_models(self, mapper, cls):
         """
-        Collect versioned class and add it to pending_classes list.
+        Collect versioned class and add it to versioned_models list.
 
         :mapper mapper: SQLAlchemy mapper object
         :cls cls: SQLAlchemy declarative class
         """
-        if hasattr(cls, '__versioned__') and cls not in self.pending_classes:
-            self.pending_classes.add(cls)
+        if hasattr(cls, '__versioned__') and cls not in self.versioned_models:
+            self.versioned_models.add(cls)
 
-    def configure_versioned_classes(self):
-        """
-        Configures all versioned classes that were collected during
-        instrumentation process.
-        """
-        for cls in self.pending_classes:
-            self.audit_table(cls.__table__, cls.__versioned__.get('exclude'))
-
-    def attach_table_listeners(self):
-        for values in self.table_listeners['transaction']:
-            sa.event.listen(self.transaction_cls.__table__, *values)
-        for values in self.table_listeners['activity']:
-            sa.event.listen(self.activity_cls.__table__, *values)
-
-    def remove_table_listeners(self):
-        for values in self.table_listeners['transaction']:
-            sa.event.remove(self.transaction_cls.__table__, *values)
-        for values in self.table_listeners['activity']:
-            sa.event.remove(self.activity_cls.__table__, *values)
 
     @property
     def actor_cls(self):
@@ -294,7 +232,7 @@ class VersioningManager(object):
                 raise ImproperlyConfigured(
                     'Could not build relationship between Activity'
                     ' and %s. %s was not found in declarative class '
-                    'registry. Either configure VersioningManager to '
+                    'registry. Either configure AuditLogger to '
                     'use different actor class or disable this '
                     'relationship by setting it to None.' % (
                         self._actor_cls,
@@ -303,107 +241,89 @@ class VersioningManager(object):
                 )
         return self._actor_cls
 
-    def attach_listeners(self):
-        self.attach_table_listeners()
-        for listener in self.listeners:
-            sa.event.listen(*listener)
 
-    def remove_listeners(self):
-        self.remove_table_listeners()
-        for listener in self.listeners:
-            sa.event.remove(*listener)
+def transaction_model_factory(Base, schema):
+    class AuditLogTransaction(Base):
+        __tablename__ = 'transaction'
 
-    def activity_model_factory(self, Base, transaction_cls):
-        class AuditLogActivity(Base):
-            __tablename__ = 'activity'
-            __table_args__ = {'schema': self.schema_name}
+        id = sa.Column(sa.BigInteger, primary_key=True)
+        native_transaction_id = sa.Column(sa.BigInteger)
+        issued_at = sa.Column(sa.DateTime)
+        client_addr = sa.Column(INET)
+        actor_id = sa.Column(sa.Text)
 
-            id = sa.Column(sa.BigInteger, primary_key=True)
-            schema_name = sa.Column(sa.Text)
-            table_name = sa.Column(sa.Text)
-            relid = sa.Column(sa.Integer)
-            issued_at = sa.Column(sa.DateTime)
-            native_transaction_id = sa.Column(sa.BigInteger, index=True)
-            verb = sa.Column(sa.Text)
-            old_data = sa.Column(JSONB, default={}, server_default='{}')
-            changed_data = sa.Column(JSONB, default={}, server_default='{}')
+        __table_args__ = (
+            ExcludeConstraint(
+                (literal_column('native_transaction_id'), '='),
+                (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
+                name='transaction_unique_native_tx_id'
+            ),
+            {'schema': schema}
+        )
 
-            @declared_attr
-            def transaction_id(cls):
-                return sa.Column(
-                    sa.BigInteger,
-                    sa.ForeignKey(transaction_cls.id)
-                )
-
-            @declared_attr
-            def transaction(cls):
-                return sa.orm.relationship(transaction_cls, backref='activities')
-
-            @hybrid_property
-            def data(self):
-                data = self.old_data.copy() if self.old_data else {}
-                if self.changed_data:
-                    data.update(self.changed_data)
-                return data
-
-            @data.expression
-            def data(cls):
-                return cls.old_data + cls.changed_data
-
-            @property
-            def object(self):
-                table = Base.metadata.tables[self.table_name]
-                cls = get_class_by_table(Base, table, self.data)
-                return cls(**self.data)
-
-            def __repr__(self):
-                return (
-                    '<{cls} table_name={table_name!r} '
-                    'id={id!r}>'
-                ).format(
-                    cls=self.__class__.__name__,
-                    table_name=self.table_name,
-                    id=self.id
-                )
-
-        return AuditLogActivity
-
-    def transaction_model_factory(self, base):
-        class AuditLogTransaction(base):
-            __tablename__ = 'transaction'
-
-            id = sa.Column(sa.BigInteger, primary_key=True)
-            native_transaction_id = sa.Column(sa.BigInteger)
-            issued_at = sa.Column(sa.DateTime)
-            client_addr = sa.Column(INET)
-            actor_id = sa.Column(sa.Text)
-
-            __table_args__ = (
-                ExcludeConstraint(
-                    (literal_column('native_transaction_id'), '='),
-                    (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
-                    name='transaction_unique_native_tx_id'
-                ),
-                {'schema': self.schema_name}
+        def __repr__(self):
+            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
+                cls=self.__class__.__name__,
+                id=self.id,
+                issued_at=self.issued_at
             )
 
-            def __repr__(self):
-                return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
-                    cls=self.__class__.__name__,
-                    id=self.id,
-                    issued_at=self.issued_at
-                )
-
-        return AuditLogTransaction
-
-    def init(self, base):
-        self.base = base
-        self.transaction_cls = self.transaction_model_factory(base)
-        self.activity_cls = self.activity_model_factory(
-            base,
-            self.transaction_cls
-        )
-        self.attach_listeners()
+    return AuditLogTransaction
 
 
-versioning_manager = VersioningManager()
+def activity_model_factory(Base, schema, transaction_cls):
+    class AuditLogActivity(Base):
+        __tablename__ = 'activity'
+        __table_args__ = {'schema': schema}
+
+        id = sa.Column(sa.BigInteger, primary_key=True)
+        schema_name = sa.Column(sa.Text)
+        table_name = sa.Column(sa.Text)
+        relid = sa.Column(sa.Integer)
+        issued_at = sa.Column(sa.DateTime)
+        native_transaction_id = sa.Column(sa.BigInteger, index=True)
+        verb = sa.Column(sa.Text)
+        old_data = sa.Column(JSONB, default={}, server_default='{}')
+        changed_data = sa.Column(JSONB, default={}, server_default='{}')
+
+        @declared_attr
+        def transaction_id(cls):
+            return sa.Column(
+                sa.BigInteger,
+                sa.ForeignKey(transaction_cls.id)
+            )
+
+        @declared_attr
+        def transaction(cls):
+            return sa.orm.relationship(transaction_cls, backref='activities')
+
+        @hybrid_property
+        def data(self):
+            data = self.old_data.copy() if self.old_data else {}
+            if self.changed_data:
+                data.update(self.changed_data)
+            return data
+
+        @data.expression
+        def data(cls):
+            return cls.old_data + cls.changed_data
+
+        @property
+        def object(self):
+            table = Base.metadata.tables[self.table_name]
+            cls = get_class_by_table(Base, table, self.data)
+            return cls(**self.data)
+
+        def __repr__(self):
+            return (
+                '<{cls} table_name={table_name!r} '
+                'id={id!r}>'
+            ).format(
+                cls=self.__class__.__name__,
+                table_name=self.table_name,
+                id=self.id
+            )
+
+    return AuditLogActivity
+
+audit_logger = AuditLogger()

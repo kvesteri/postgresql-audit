@@ -15,10 +15,10 @@ SQLAlchemy ORM. It has the following features:
 .. code-block:: python
 
 
-    from postgresql_audit import versioning_manager
+    from postgresql_audit import audit_logger
 
 
-    versioning_manager.init(Base)
+    audit_logger.init(Base)
 
 
     class Article(Base):
@@ -85,7 +85,7 @@ Versioning :class:`~sqlalchemy.schema.Table` objects is easy. Just call
         )
 
 
-    versioning_manager.audit_table(group_user)
+    audit_logger.audit_table(group_user)
 
 
 Tracking inserts
@@ -93,7 +93,7 @@ Tracking inserts
 
 Now we can check the newly created activity::
 
-    Activity = versioning_manager.activity_cls
+    Activity = audit_logger.activity_cls
 
     activity = Activity.query.first()
     activity.id             # 1
@@ -155,9 +155,9 @@ Temporarily disabling inserts to the ``activity`` table
 
 There are cases where you might not want to track changes to your data, such as
 when doing big changes to a table. In those cases, you can use the
-``VersioningManager.disable`` context manager::
+``AuditLogger.disable`` context manager::
 
-    with versioning_manager.disable(session):
+    with audit_logger.disable(session):
         for i in range(1, 10000):
             db.session.add(db.Product(name='Product %s' % i))
         db.session.commit()

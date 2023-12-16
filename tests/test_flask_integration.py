@@ -7,7 +7,7 @@ from flask import Flask
 from flask_login import FlaskLoginClient, LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
-from postgresql_audit.flask import activity_values, VersioningManager
+from postgresql_audit.flask import activity_values, AuditLogger
 
 
 @pytest.fixture
@@ -54,20 +54,20 @@ def app(dns, db, login_manager, user_class, article_class):
 
 
 @pytest.fixture
-def versioning_manager(db):
-    vm = VersioningManager()
-    vm.init(db.Model)
-    yield vm
-    vm.remove_listeners()
+def audit_logger(db):
+    al = AuditLogger()
+    al.init(db.Model)
+    yield al
+    al.remove_listeners()
 
 
 @pytest.fixture
-def table_creator(app, db, models, activity_cls, versioning_manager):
+def table_creator(app, db, models, activity_cls, audit_logger):
     with app.app_context():
         db.configure_mappers()
         conn = db.session.connection()
-        versioning_manager.transaction_cls.__table__.create(conn)
-        versioning_manager.activity_cls.__table__.create(conn)
+        audit_logger.transaction_cls.__table__.create(conn)
+        audit_logger.activity_cls.__table__.create(conn)
         db.Model.metadata.create_all(conn)
         db.session.commit()
         yield
@@ -88,7 +88,7 @@ def article_class(base):
     return Article
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestFlaskIntegration(object):
     def test_client_addr_with_proxies(
         self,
@@ -119,14 +119,14 @@ class TestFlaskIntegration(object):
         app,
         db,
         user,
-        versioning_manager
+        audit_logger
     ):
         with app.test_client(user=user) as client:
             client.get('/simple-flush')
 
         activities = (
-            db.session.query(versioning_manager.activity_cls)
-            .order_by(versioning_manager.activity_cls.id.desc()).all()
+            db.session.query(audit_logger.activity_cls)
+            .order_by(audit_logger.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
         assert activities[0].transaction.actor_id == user.id
@@ -138,7 +138,7 @@ class TestFlaskIntegration(object):
         app,
         user,
         article_class,
-        versioning_manager
+        audit_logger
     ):
         @app.route('/activity-values')
         def test_activity_values():
@@ -157,8 +157,8 @@ class TestFlaskIntegration(object):
             client.get('/activity-values')
 
         activities = (
-            db.session.query(versioning_manager.activity_cls)
-            .order_by(versioning_manager.activity_cls.id.desc()).all()
+            db.session.query(audit_logger.activity_cls)
+            .order_by(audit_logger.activity_cls.id.desc()).all()
         )
         assert len(activities) == 2
         assert activities[0].transaction.actor_id == 4
@@ -170,7 +170,7 @@ class TestFlaskIntegration(object):
         app,
         user,
         article_class,
-        versioning_manager
+        audit_logger
     ):
         def create_article():
             article = article_class()
@@ -195,8 +195,8 @@ class TestFlaskIntegration(object):
             client.get('/activity-values')
 
         activities = (
-            db.session.query(versioning_manager.activity_cls)
-            .order_by(versioning_manager.activity_cls.id.desc()).all()
+            db.session.query(audit_logger.activity_cls)
+            .order_by(audit_logger.activity_cls.id.desc()).all()
         )
         assert len(activities) == 6
         assert activities[0].transaction.actor_id != 4
@@ -217,7 +217,7 @@ class TestFlaskIntegration(object):
         db,
         transaction_cls,
         user,
-        versioning_manager
+        audit_logger
     ):
         @app.route('/update-excluded-column')
         def test_update_excluded_column():
@@ -236,7 +236,7 @@ class TestFlaskIntegration(object):
         self,
         db,
         article_class,
-        versioning_manager
+        audit_logger
     ):
         with activity_values(actor_id=4):
             article = article_class()
@@ -245,8 +245,8 @@ class TestFlaskIntegration(object):
             db.session.commit()
 
         activities = (
-            db.session.query(versioning_manager.activity_cls)
-            .order_by(versioning_manager.activity_cls.id.desc()).all()
+            db.session.query(audit_logger.activity_cls)
+            .order_by(audit_logger.activity_cls.id.desc()).all()
         )
         assert len(activities) == 1
         assert activities[0].transaction.actor_id == 4

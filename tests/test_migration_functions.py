@@ -20,11 +20,11 @@ class TestRenameTable(object):
         article,
         user,
         engine,
-        versioning_manager
+        audit_logger
     ):
         with engine.begin() as connection:
             rename_table(connection, 'user', 'user2')
-        activity = session.query(versioning_manager.activity_cls).filter_by(
+        activity = session.query(audit_logger.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert activity
@@ -44,11 +44,11 @@ class TestChangeColumnName(object):
         article,
         user,
         engine,
-        versioning_manager
+        audit_logger
     ):
         with engine.begin() as connection:
             change_column_name(connection, 'user', 'name', 'some_name')
-        activity = session.query(versioning_manager.activity_cls).filter_by(
+        activity = session.query(audit_logger.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'name' in activity.changed_data
@@ -84,11 +84,11 @@ class TestRemoveColumn(object):
         article,
         user,
         engine,
-        versioning_manager
+        audit_logger
     ):
         with engine.begin() as connection:
             remove_column(connection, 'user', 'name')
-        activity = session.query(versioning_manager.activity_cls).filter_by(
+        activity = session.query(audit_logger.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'name' in activity.changed_data
@@ -123,11 +123,11 @@ class TestAddColumn(object):
         article,
         user,
         engine,
-        versioning_manager
+        audit_logger
     ):
         with engine.begin() as connection:
             add_column(connection, 'user', 'some_column')
-        activity = session.query(versioning_manager.activity_cls).filter_by(
+        activity = session.query(audit_logger.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert 'some_column' not in activity.changed_data
@@ -167,7 +167,7 @@ class TestAlterColumn(object):
         article,
         user,
         engine,
-        versioning_manager
+        audit_logger
     ):
         with engine.begin() as connection:
             alter_column(
@@ -176,7 +176,7 @@ class TestAlterColumn(object):
                 'id',
                 lambda value, activity_table: sa.cast(value, sa.Text)
             )
-        activity = session.query(versioning_manager.activity_cls).filter_by(
+        activity = session.query(audit_logger.activity_cls).filter_by(
             table_name='article'
         ).one()
         assert isinstance(activity.changed_data['id'], int)

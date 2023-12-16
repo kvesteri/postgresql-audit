@@ -5,12 +5,12 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import declarative_base, synonym_for
 
-from postgresql_audit import VersioningManager
+from postgresql_audit import AuditLogger
 
 from .utils import last_activity
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestActivityCreation(object):
     def test_insert(self, user, engine):
         with engine.begin() as connection:
@@ -29,10 +29,10 @@ class TestActivityCreation(object):
         self,
         activity_cls,
         user_class,
-        versioning_manager,
+        audit_logger,
         session
     ):
-        with versioning_manager.disable(session):
+        with audit_logger.disable(session):
             user = user_class(name='John')
             session.add(user)
             session.flush()
@@ -72,37 +72,37 @@ class TestActivityCreation(object):
         self,
         user_class,
         session,
-        versioning_manager
+        audit_logger
     ):
-        versioning_manager.values = {'actor_id': 1}
+        audit_logger.values = {'actor_id': 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = session.query(versioning_manager.activity_cls).first()
+        activity = session.query(audit_logger.activity_cls).first()
         assert activity.transaction.actor_id == '1'
 
     def test_callables_as_manager_defaults(
         self,
         user_class,
         session,
-        versioning_manager
+        audit_logger
     ):
-        versioning_manager.values = {'actor_id': lambda: 1}
+        audit_logger.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
-        activity = session.query(versioning_manager.activity_cls).first()
+        activity = session.query(audit_logger.activity_cls).first()
         assert activity.transaction.actor_id == '1'
 
     def test_raw_inserts(
         self,
         user_class,
         session,
-        versioning_manager,
+        audit_logger,
         activity_cls
     ):
-        versioning_manager.values = {'actor_id': 1}
-        versioning_manager.set_activity_values(session)
+        audit_logger.values = {'actor_id': 1}
+        audit_logger.save_transaction(session)
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
 
@@ -118,7 +118,7 @@ class TestActivityCreation(object):
         )
 
     def test_custom_actor_class(self, user_class):
-        manager = VersioningManager(actor_cls=user_class)
+        manager = AuditLogger(actor_cls=user_class)
         manager.init(declarative_base())
         sa.orm.configure_mappers()
         assert isinstance(
@@ -149,7 +149,7 @@ class TestActivityCreation(object):
             id = sa.Column(sa.Integer, primary_key=True)
 
         User()
-        manager = VersioningManager(actor_cls='User')
+        manager = AuditLogger(actor_cls='User')
         manager.init(base)
         sa.orm.configure_mappers()
         assert isinstance(
@@ -164,9 +164,9 @@ class TestActivityCreation(object):
         activity_cls,
         user_class,
         session,
-        versioning_manager
+        audit_logger
     ):
-        with versioning_manager.disable(session):
+        with audit_logger.disable(session):
             user = user_class(name='Jack')
             session.add(user)
             session.commit()
@@ -182,10 +182,10 @@ class TestActivityCreation(object):
         activity_cls,
         user_class,
         session,
-        versioning_manager
+        audit_logger
     ):
         try:
-            with versioning_manager.disable(session):
+            with audit_logger.disable(session):
                 user = user_class(name='Jack')
                 session.add(user)
                 session.commit()
@@ -207,9 +207,9 @@ class TestActivityCreation(object):
         activity_cls,
         user_class,
         session,
-        versioning_manager
+        audit_logger
     ):
-        versioning_manager.values = {'client_addr': '127.0.0.1'}
+        audit_logger.values = {'client_addr': '127.0.0.1'}
         user = user_class(name='Jack')
         session.add(user)
         session.flush()
@@ -218,10 +218,10 @@ class TestActivityCreation(object):
         session.commit()
         activities = session.query(activity_cls).all()
         assert activities[0].transaction == activities[1].transaction
-        assert session.query(versioning_manager.transaction_cls).count() == 1
+        assert session.query(audit_logger.transaction_cls).count() == 1
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestColumnExclusion(object):
     """
     Test column exclusion with polymorphic inheritance and column aliases to
@@ -283,7 +283,7 @@ class TestColumnExclusion(object):
         assert session.query(activity_cls).count() == 2
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestIsModified(object):
     @pytest.fixture
     def article_class(self, base, user_class):
@@ -332,78 +332,78 @@ class TestIsModified(object):
     def test_class_with_synonyms(
         self,
         article_class,
-        versioning_manager,
+        audit_logger,
         session
     ):
         article = article_class(name='Someone', _created_at=datetime.now())
         session.add(article)
-        assert versioning_manager.is_modified(article)
+        assert audit_logger.is_modified(article)
 
     def test_modified_transient_object(
         self,
-        versioning_manager,
+        audit_logger,
         article_class,
         session
     ):
         article = article_class(name='Article 1')
         session.add(article)
-        assert versioning_manager.is_modified(article)
-        assert versioning_manager.is_modified(session)
+        assert audit_logger.is_modified(article)
+        assert audit_logger.is_modified(session)
 
     def test_modified_excluded_column_with_persistent_object(
         self,
-        versioning_manager,
+        audit_logger,
         article,
         session
     ):
         article.updated_at = datetime.now()
-        assert not versioning_manager.is_modified(article)
-        assert not versioning_manager.is_modified(session)
+        assert not audit_logger.is_modified(article)
+        assert not audit_logger.is_modified(session)
 
     def test_modified_persistent_object(
         self,
-        versioning_manager,
+        audit_logger,
         article,
         session
     ):
         article.name = 'Article updated'
-        assert versioning_manager.is_modified(article)
-        assert versioning_manager.is_modified(session)
+        assert audit_logger.is_modified(article)
+        assert audit_logger.is_modified(session)
 
     def test_modified_excluded_relationship_column(
         self,
-        versioning_manager,
+        audit_logger,
         user_class,
         article,
         session
     ):
         article.creator = user_class(name='Someone')
-        assert not versioning_manager.is_modified(article)
-        assert not versioning_manager.is_modified(session)
+        assert not audit_logger.is_modified(article)
+        assert not audit_logger.is_modified(session)
 
     def test_modified_relationship(
         self,
-        versioning_manager,
+        audit_logger,
         user_class,
         article,
         session
     ):
         article.author = user_class(name='Someone')
-        assert versioning_manager.is_modified(article)
-        assert versioning_manager.is_modified(session)
+        assert audit_logger.is_modified(article)
+        assert audit_logger.is_modified(session)
 
     def test_deleted_object(
         self,
-        versioning_manager,
+        audit_logger,
         user_class,
         article,
         session
     ):
         session.delete(article)
-        assert versioning_manager.is_modified(session)
+        assert audit_logger.is_modified(session)
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestActivityObject(object):
     def test_activity_object(self, session, activity_cls, user_class):
         user = user_class(name='John')

@@ -1,7 +1,7 @@
 from .base import (  # noqa
     ImproperlyConfigured,
-    versioning_manager,
-    VersioningManager
+    audit_logger,
+    AuditLogger
 )
 from .expressions import jsonb_change_key_name  # noqa
 from .migrations import (  # noqa

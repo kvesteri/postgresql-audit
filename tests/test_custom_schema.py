@@ -4,7 +4,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import declarative_base
 
-from postgresql_audit import VersioningManager
+from postgresql_audit import AuditLogger
 
 from .utils import last_activity
 
@@ -14,7 +14,7 @@ def schema_name():
     return 'audit'
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestCustomSchemaactivityCreation(object):
     def test_insert(self, user, engine, schema_name):
         with engine.begin() as connection:
@@ -61,10 +61,10 @@ class TestCustomSchemaactivityCreation(object):
         self,
         user_class,
         session,
-        versioning_manager,
+        audit_logger,
         activity_cls
     ):
-        versioning_manager.values = {'actor_id': 1}
+        audit_logger.values = {'actor_id': 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -75,10 +75,10 @@ class TestCustomSchemaactivityCreation(object):
         self,
         user_class,
         session,
-        versioning_manager,
+        audit_logger,
         activity_cls
     ):
-        versioning_manager.values = {'actor_id': lambda: 1}
+        audit_logger.values = {'actor_id': lambda: 1}
         user = user_class(name='John')
         session.add(user)
         session.commit()
@@ -89,11 +89,11 @@ class TestCustomSchemaactivityCreation(object):
         self,
         user_class,
         session,
-        versioning_manager,
+        audit_logger,
         activity_cls
     ):
-        versioning_manager.values = {'actor_id': 1}
-        versioning_manager.set_activity_values(session)
+        audit_logger.values = {'actor_id': 1}
+        audit_logger.save_transaction(session)
         session.execute(user_class.__table__.insert().values(name='John'))
         session.execute(user_class.__table__.insert().values(name='John'))
         activity = session.query(activity_cls).first()
@@ -105,7 +105,7 @@ class TestCustomSchemaactivityCreation(object):
         )
 
     def test_custom_actor_class(self, user_class, schema_name):
-        manager = VersioningManager(
+        manager = AuditLogger(
             actor_cls=user_class,
             schema_name=schema_name
         )
@@ -140,7 +140,7 @@ class TestCustomSchemaactivityCreation(object):
             id = sa.Column(sa.Integer, primary_key=True)
 
         User()
-        manager = VersioningManager(
+        manager = AuditLogger(
             actor_cls='User',
             schema_name=schema_name
         )

@@ -3,6 +3,14 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+0.18.0 (2023-12-15)
+^^^^^^^^^^^^^^^^^^^
+
+- Rename ``VersioningManager`` to ``AuditLogger``
+- Update flask ``AuditLogger`` to configure triggers on startup
+- Update README
+
+
 0.17.1 (2023-11-06)
 ^^^^^^^^^^^^^^^^^^^
 
