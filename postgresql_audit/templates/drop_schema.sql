@@ -1,1 +1,1 @@
-DROP SCHEMA ${schema_name} CASCADE;
+DROP SCHEMA ${schema} CASCADE;

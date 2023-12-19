@@ -1,4 +1,5 @@
-CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity() RETURNS TRIGGER AS $$
+CREATE FUNCTION ${schema_prefix}create_activity()
+RETURNS TRIGGER AS $$
 DECLARE
     audit_row ${schema_prefix}activity;
     excluded_cols text[] = ARRAY[]::text[];
@@ -20,18 +21,18 @@ BEGIN
 
     IF (TG_OP = 'UPDATE') THEN
         INSERT INTO ${schema_prefix}activity(
-            id, schema_name, table_name, relid, issued_at, native_transaction_id,
+            id, schema, table_name, relid, issued_at, native_transaction_id,
             verb, old_data, changed_data, transaction_id)
         SELECT
             nextval('${schema_prefix}activity_id_seq') as id,
-            TG_TABLE_SCHEMA::text AS schema_name,
+            TG_TABLE_SCHEMA::text AS schema,
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
             txid_current() AS native_transaction_id,
             LOWER(TG_OP) AS verb,
             old_data - excluded_cols AS old_data,
-            new_data - old_data - excluded_cols AS changed_data,
+            ${schema_prefix}jsonb_subtract(new_data, old_data) - excluded_cols AS changed_data,
             _transaction_id AS transaction_id
         FROM (
             SELECT *
@@ -49,14 +50,14 @@ BEGIN
             ) AS new_table
             USING(row_number)
         ) as sub
-        WHERE new_data - old_data - excluded_cols != '{}'::jsonb;
+        WHERE ${schema_prefix}jsonb_subtract(new_data, old_data) - excluded_cols != '{}'::jsonb;
     ELSIF (TG_OP = 'INSERT') THEN
         INSERT INTO ${schema_prefix}activity(
-            id, schema_name, table_name, relid, issued_at, native_transaction_id,
+            id, schema, table_name, relid, issued_at, native_transaction_id,
             verb, old_data, changed_data, transaction_id)
         SELECT
             nextval('${schema_prefix}activity_id_seq') as id,
-            TG_TABLE_SCHEMA::text AS schema_name,
+            TG_TABLE_SCHEMA::text AS schema,
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
@@ -68,11 +69,11 @@ BEGIN
         FROM new_table;
     ELSEIF TG_OP = 'DELETE' THEN
         INSERT INTO ${schema_prefix}activity(
-            id, schema_name, table_name, relid, issued_at, native_transaction_id,
+            id, schema, table_name, relid, issued_at, native_transaction_id,
             verb, old_data, changed_data, transaction_id)
         SELECT
             nextval('${schema_prefix}activity_id_seq') as id,
-            TG_TABLE_SCHEMA::text AS schema_name,
+            TG_TABLE_SCHEMA::text AS schema,
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,

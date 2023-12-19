@@ -25,7 +25,7 @@ class AuditLogger(BaseAuditLogger):
             self._setup_triggers(app, db)
 
     def _setup_triggers(self, app, db):
-        schema_exists_sql = text(f"SELECT TRUE FROM information_schema.schemata WHERE schema_name = '{self.schema_name}'")
+        schema_exists_sql = text(f"SELECT TRUE FROM information_schema.schemata WHERE schema = '{self.schema}'")
         if not db.session.scalar(schema_exists_sql):
             return
 

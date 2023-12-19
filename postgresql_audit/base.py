@@ -2,12 +2,14 @@ import os
 import string
 import warnings
 from contextlib import contextmanager
-from weakref import WeakSet
+from dataclasses import dataclass
+from functools import cached_property
 
+from flask import request
 import sqlalchemy as sa
-from sqlalchemy import orm, text, literal_column
+from sqlalchemy import orm, text, literal_column, DDL
+from sqlalchemy.sql.elements import TextClause
 from sqlalchemy.dialects.postgresql import (
-    array,
     ExcludeConstraint,
     INET,
     insert,
@@ -17,6 +19,11 @@ from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
+# from alembic_utils.pg_function import PGFunction
+# from alembic_utils.pg_extension import PGExtension
+# from alembic_utils.pg_trigger import PGTrigger
+
+from postgresql_audit import alembic
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,6 +34,41 @@ class ImproperlyConfigured(Exception):
 
 class ClassNotVersioned(Exception):
     pass
+
+
+@dataclass
+class PGExtension:
+    schema: str
+    signature: str
+
+    @property
+    def create_sql(self):
+        return text(f"CREATE EXTENSION {self.signature} WITH SCHEMA {self.schema}")
+
+    @property
+    def drop_sql(self):
+        return text(f"DROP EXTENSION {self.signature}")
+
+@dataclass
+class PGFunction:
+    schema: str
+    signature: str
+    create_sql: TextClause
+
+    @property
+    def drop_sql(self):
+        return text(f'DROP FUNCTION {self.schema}.{self.signature} CASCADE')
+
+@dataclass
+class PGTrigger:
+    schema: str
+    signature: str
+    table_name: str
+    create_sql: TextClause
+
+    @property
+    def drop_sql(self):
+        return text(f'DROP TRIGGER {self.signature} ON {self.table_name}')
 
 
 def read_file(file_):
@@ -41,36 +83,168 @@ def convert_callables(values):
         for key, value in values.items()
     }
 
+def default_actor_id():
+    from flask_login import current_user
+
+    try:
+        return current_user.id
+    except AttributeError:
+        return
+
+def default_client_addr():
+    # Return None if we are outside of request context.
+    return (request and request.remote_addr) or None
+
 
 class AuditLogger(object):
     _actor_cls = None
+    writer = None
 
     def __init__(
         self,
+        db,
+        get_actor_id=None,
+        get_client_addr=None,
         actor_cls=None,
-        schema_name=None,
-        use_statement_level_triggers=True
+        schema=None,
     ):
-        if actor_cls is not None:
-            self._actor_cls = actor_cls
+        self._actor_cls = actor_cls or 'User'
+        self.get_actor_id = get_actor_id or default_actor_id
+        self.get_client_addr = get_client_addr or default_client_addr
+        self.db = db
         self.values = {}
-        self.listeners = (
-            (
-                orm.Mapper,
-                'instrument_class',
-                self.detect_versioned_models
-            ),
-            (
-                orm.session.Session,
-                'before_flush',
-                self.receive_before_flush,
-            ),
+        self.schema = schema
+        self.versioned_tables = set()
+        self.base = db.Model
+        self.transaction_cls = self.transaction_model_factory()
+        self.activity_cls = self.activity_model_factory()
+        self.detect_versioned_tables()
+        self.attach_listeners()
+        self.initialize_alembic_operations()
+
+    def attach_listeners(self):
+        listeners = (
+            # (orm.Mapper, 'instrument_class', self.detect_versioned_tables),
+            (orm.session.Session, 'before_flush', self.receive_before_flush),
         )
-        self.schema_name = schema_name
-        self.versioned_models = set()
-        self.use_statement_level_triggers = use_statement_level_triggers
+        for listener in listeners:
+            sa.event.listen(*listener)
+
+    def initialize_alembic_operations(self):
+        alembic.setup_schema(self)
+        alembic.setup_functions_and_triggers(self)
+        self.writer = alembic.init_migration_ops(self.schema)
+
+    def process_revision_directives(self, context, revision, directives):
+        if self.writer:
+            self.writer.process_revision_directives(context, revision, directives)
+
+    @property
+    def prefix(self):
+        return f"{self.schema}." if self.schema else ""
+
+    @cached_property
+    def pg_entities(self):
+        return [
+            self.pg_btree_gist_extension,
+            *self.pg_functions,
+            *self.pg_triggers,
+        ]
+
+    @cached_property
+    def pg_functions(self):
+        return [
+            self.pg_get_setting,
+            self.pg_jsonb_subtract,
+            self.pg_jsonb_change_key_name,
+            self.pg_create_activity,
+        ]
+
+    @property
+    def pg_triggers(self):
+        return [t for triggers in self.pg_triggers_per_table.values() for t in triggers]
+
+    @cached_property
+    def pg_triggers_per_table(self):
+        triggers_per_table = {}
+        for table in self.versioned_tables:
+            target_schema = table.schema or "public"
+            versioned = table.info.get("versioned", {})
+            excluded_columns = ""
+            if "exclude" in versioned:
+                joined_excludes = ",".join(versioned['exclude'])
+                excluded_columns = "'{" + joined_excludes + "}'"
+
+            triggers_per_table[table.name] = [
+                PGTrigger(
+                    schema=target_schema,
+                    table_name=table.name,
+                    signature="audit_trigger_insert",
+                    create_sql=self.render_sql_template("audit_trigger_insert.sql", table_name=table.name, excluded_columns=excluded_columns),
+                ),
+                PGTrigger(
+                    schema=target_schema,
+                    table_name=table.name,
+                    signature="audit_trigger_update",
+                    create_sql=self.render_sql_template("audit_trigger_update.sql", table_name=table.name, excluded_columns=excluded_columns),
+                ),
+                PGTrigger(
+                    schema=target_schema,
+                    table_name=table.name,
+                    signature="audit_trigger_delete",
+                    create_sql=self.render_sql_template("audit_trigger_delete.sql", table_name=table.name, excluded_columns=excluded_columns),
+                )
+            ]
+
+        return triggers_per_table
+
+    @property
+    def functions_by_signature(self) -> dict[str, PGFunction]:
+        return {pg_func.signature: pg_func for pg_func in self.pg_functions}
+
+    @cached_property
+    def pg_btree_gist_extension(self) -> PGExtension:
+        return PGExtension(schema="public", signature="btree_gist")
+
+    @property
+    def pg_get_setting(self) -> PGFunction:
+        return PGFunction(
+            schema=self.schema,
+            signature="get_setting(setting text, fallback text)",
+            create_sql=self.render_sql_template("get_setting.sql")
+        )
+
+    @property
+    def pg_jsonb_subtract(self) -> PGFunction:
+        return PGFunction(
+            schema=self.schema,
+            signature="jsonb_subtract(arg1 jsonb, arg2 jsonb)",
+            create_sql=self.render_sql_template("jsonb_subtract.sql")
+        )
+
+    @property
+    def pg_jsonb_change_key_name(self) -> PGFunction:
+        return PGFunction(
+            schema=self.schema,
+            signature="jsonb_change_key_name(data jsonb, old_key text, new_key text)",
+            create_sql=self.render_sql_template("jsonb_change_key_name.sql")
+        )
+
+    @property
+    def pg_create_activity(self) -> PGFunction:
+        return PGFunction(
+            schema=self.schema,
+            signature="create_activity()",
+            create_sql=self.render_sql_template("create_activity.sql")
+        )
+
 
     def get_transaction_values(self):
+        if ('client_addr' not in self.values):
+            self.values['client_addr'] = self.get_client_addr()
+        if ('actor_id' not in self.values):
+            self.values['actor_id'] = self.get_actor_id()
+
         return self.values
 
     @contextmanager
@@ -89,57 +263,63 @@ class AuditLogger(object):
                 )
             )
 
-    def render_tmpl(self, tmpl_name):
-        file_contents = read_file(
-            'templates/{}'.format(tmpl_name)
-        ).replace('$$', '$$$$')
+    def render_sql_template(self, tmpl_name: str, as_text: bool = True, **kwargs) -> TextClause | DDL:
+        file_contents = read_file('templates/{}'.format(tmpl_name)).replace('$$', '$$$$')
         tmpl = string.Template(file_contents)
-        context = dict(schema_name=self.schema_name)
+        context = dict(schema=self.schema)
 
-        if self.schema_name is None:
+        if self.schema is None:
             context['schema_prefix'] = ''
             context['revoke_cmd'] = ''
         else:
-            context['schema_prefix'] = '{}.'.format(self.schema_name)
+            context['schema_prefix'] = '{}.'.format(self.schema)
             context['revoke_cmd'] = (
                 'REVOKE ALL ON {schema_prefix}activity FROM public;'
             ).format(**context)
 
-        temp = tmpl.substitute(**context)
-        return temp
+        sql = tmpl.substitute(**context, **kwargs)
 
-    def operators_sql(self):
-        return text(self.render_tmpl('operators.sql'))
-
-    def audit_table_sql(self):
-        sql = ''
-        if self.use_statement_level_triggers:
-            sql += self.render_tmpl('create_activity_stmt_level.sql')
-            sql += self.render_tmpl('audit_table_stmt_level.sql')
-        else:
-            sql += self.render_tmpl('create_activity_row_level.sql')
-            sql += self.render_tmpl('audit_table_row_level.sql')
+        if not as_text:
+            return DDL(sql)
 
         return text(sql)
 
-    def build_audit_table_query(self, table, exclude_columns=None):
-        args = [table.name]
-        if exclude_columns:
-            for column in exclude_columns:
-                if column not in table.c:
-                    raise ImproperlyConfigured(
-                        "Could not configure versioning. Table '{}'' does "
-                        "not have a column named '{}'.".format(
-                            table.name, column
-                        )
-                    )
-            args.append(array(exclude_columns))
+    def receive_before_flush(self, session, flush_context, instances):
+        if self.is_session_modified(session):
+            self.save_transaction(session)
 
-        if self.schema_name is None:
-            func = sa.func.audit_table
-        else:
-            func = getattr(getattr(sa.func, self.schema_name), 'audit_table')
-        return sa.select(func(*args))
+    def is_session_modified(self, session):
+        return any(
+            self.is_entity_modified(entity) or entity in session.deleted
+            for entity in session
+            if entity.__table__.info.get('versioned') is not None
+        )
+
+    def is_entity_modified(self, entity):
+        versioned = entity.__table__.info.get('versioned')
+        if versioned is None:
+            raise ClassNotVersioned(entity.__class__.__name__)
+
+        excluded_cols = set(versioned.get('exclude', []))
+        modified_cols = {column.name for column in self.modified_columns(entity)}
+
+        return bool(modified_cols - excluded_cols)
+
+    def modified_columns(self, obj):
+        columns = set()
+        mapper = sa.inspect(obj.__class__)
+        for key, attr in sa.inspect(obj).attrs.items():
+            if key in mapper.synonyms.keys():
+                continue
+            prop = getattr(obj.__class__, key).property
+            if attr.history.has_changes():
+                columns |= set(
+                    prop.columns
+                    if isinstance(prop, sa.orm.ColumnProperty)
+                    else
+                    [local for local, remote in prop.local_remote_pairs]
+                )
+        return columns
 
     def save_transaction(self, session):
         transaction_mapper = sa.inspect(self.transaction_cls)
@@ -168,54 +348,10 @@ class AuditLogger(object):
             )
             session.execute(stmt)
 
-    def modified_columns(self, obj):
-        columns = set()
-        mapper = sa.inspect(obj.__class__)
-        for key, attr in sa.inspect(obj).attrs.items():
-            if key in mapper.synonyms.keys():
-                continue
-            prop = getattr(obj.__class__, key).property
-            if attr.history.has_changes():
-                columns |= set(
-                    prop.columns
-                    if isinstance(prop, sa.orm.ColumnProperty)
-                    else
-                    [local for local, remote in prop.local_remote_pairs]
-                )
-        return columns
-
-    def is_modified(self, obj_or_session):
-        if hasattr(obj_or_session, '__mapper__'):
-            if not hasattr(obj_or_session, '__versioned__'):
-                raise ClassNotVersioned(obj_or_session.__class__.__name__)
-            excluded = obj_or_session.__versioned__.get('exclude', [])
-            return bool(
-                set([
-                    column.name
-                    for column in self.modified_columns(obj_or_session)
-                ]) - set(excluded)
-            )
-        else:
-            return any(
-                self.is_modified(entity) or entity in obj_or_session.deleted
-                for entity in obj_or_session
-                if hasattr(entity, '__versioned__')
-            )
-
-    def receive_before_flush(self, session, flush_context, instances):
-        if self.is_modified(session):
-            self.save_transaction(session)
-
-    def detect_versioned_models(self, mapper, cls):
-        """
-        Collect versioned class and add it to versioned_models list.
-
-        :mapper mapper: SQLAlchemy mapper object
-        :cls cls: SQLAlchemy declarative class
-        """
-        if hasattr(cls, '__versioned__') and cls not in self.versioned_models:
-            self.versioned_models.add(cls)
-
+    def detect_versioned_tables(self):
+        for table in self.db.metadata.tables.values():
+            if table.info.get("versioned") is not None:
+                self.versioned_tables.add(table)
 
     @property
     def actor_cls(self):
@@ -242,88 +378,86 @@ class AuditLogger(object):
         return self._actor_cls
 
 
-def transaction_model_factory(Base, schema):
-    class AuditLogTransaction(Base):
-        __tablename__ = 'transaction'
+    def transaction_model_factory(self):
+        class AuditLogTransaction(self.base):
+            __tablename__ = 'transaction'
 
-        id = sa.Column(sa.BigInteger, primary_key=True)
-        native_transaction_id = sa.Column(sa.BigInteger)
-        issued_at = sa.Column(sa.DateTime)
-        client_addr = sa.Column(INET)
-        actor_id = sa.Column(sa.Text)
+            id = sa.Column(sa.BigInteger, primary_key=True)
+            native_transaction_id = sa.Column(sa.BigInteger)
+            issued_at = sa.Column(sa.DateTime)
+            client_addr = sa.Column(INET)
+            actor_id = sa.Column(sa.Text)
 
-        __table_args__ = (
-            ExcludeConstraint(
-                (literal_column('native_transaction_id'), '='),
-                (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
-                name='transaction_unique_native_tx_id'
-            ),
-            {'schema': schema}
-        )
-
-        def __repr__(self):
-            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
-                cls=self.__class__.__name__,
-                id=self.id,
-                issued_at=self.issued_at
+            __table_args__ = (
+                ExcludeConstraint(
+                    (literal_column('native_transaction_id'), '='),
+                    (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
+                    name='transaction_unique_native_tx_id'
+                ),
+                {'schema': self.schema}
             )
 
-    return AuditLogTransaction
+            def __repr__(self):
+                return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
+                    cls=self.__class__.__name__,
+                    id=self.id,
+                    issued_at=self.issued_at
+                )
+
+        return AuditLogTransaction
 
 
-def activity_model_factory(Base, schema, transaction_cls):
-    class AuditLogActivity(Base):
-        __tablename__ = 'activity'
-        __table_args__ = {'schema': schema}
+    def activity_model_factory(self):
+        class AuditLogActivity(self.base):
+            __tablename__ = 'activity'
+            __table_args__ = {'schema': self.schema}
 
-        id = sa.Column(sa.BigInteger, primary_key=True)
-        schema_name = sa.Column(sa.Text)
-        table_name = sa.Column(sa.Text)
-        relid = sa.Column(sa.Integer)
-        issued_at = sa.Column(sa.DateTime)
-        native_transaction_id = sa.Column(sa.BigInteger, index=True)
-        verb = sa.Column(sa.Text)
-        old_data = sa.Column(JSONB, default={}, server_default='{}')
-        changed_data = sa.Column(JSONB, default={}, server_default='{}')
+            id = sa.Column(sa.BigInteger, primary_key=True)
+            schema = sa.Column(sa.Text)
+            table_name = sa.Column(sa.Text)
+            relid = sa.Column(sa.Integer)
+            issued_at = sa.Column(sa.DateTime)
+            native_transaction_id = sa.Column(sa.BigInteger, index=True)
+            verb = sa.Column(sa.Text)
+            old_data = sa.Column(JSONB, default={}, server_default='{}')
+            changed_data = sa.Column(JSONB, default={}, server_default='{}')
 
-        @declared_attr
-        def transaction_id(cls):
-            return sa.Column(
-                sa.BigInteger,
-                sa.ForeignKey(transaction_cls.id)
-            )
+            @declared_attr
+            def transaction_id(cls):
+                return sa.Column(
+                    sa.BigInteger,
+                    sa.ForeignKey(self.transaction_cls.id)
+                )
 
-        @declared_attr
-        def transaction(cls):
-            return sa.orm.relationship(transaction_cls, backref='activities')
+            @declared_attr
+            def transaction(cls):
+                return sa.orm.relationship(self.transaction_cls, backref='activities')
 
-        @hybrid_property
-        def data(self):
-            data = self.old_data.copy() if self.old_data else {}
-            if self.changed_data:
-                data.update(self.changed_data)
-            return data
+            @hybrid_property
+            def data(self):
+                data = self.old_data.copy() if self.old_data else {}
+                if self.changed_data:
+                    data.update(self.changed_data)
+                return data
 
-        @data.expression
-        def data(cls):
-            return cls.old_data + cls.changed_data
+            @data.expression
+            def data(cls):
+                return cls.old_data + cls.changed_data
 
-        @property
-        def object(self):
-            table = Base.metadata.tables[self.table_name]
-            cls = get_class_by_table(Base, table, self.data)
-            return cls(**self.data)
+            @property
+            def object(self):
+                table = self.base.metadata.tables[self.table_name]
+                cls = get_class_by_table(self.base, table, self.data)
+                return cls(**self.data)
 
-        def __repr__(self):
-            return (
-                '<{cls} table_name={table_name!r} '
-                'id={id!r}>'
-            ).format(
-                cls=self.__class__.__name__,
-                table_name=self.table_name,
-                id=self.id
-            )
+            def __repr__(self):
+                return (
+                    '<{cls} table_name={table_name!r} '
+                    'id={id!r}>'
+                ).format(
+                    cls=self.__class__.__name__,
+                    table_name=self.table_name,
+                    id=self.id
+                )
 
-    return AuditLogActivity
-
-audit_logger = AuditLogger()
+        return AuditLogActivity

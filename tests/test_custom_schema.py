@@ -10,15 +10,15 @@ from .utils import last_activity
 
 
 @pytest.fixture
-def schema_name():
+def schema():
     return 'audit'
 
 
 @pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestCustomSchemaactivityCreation(object):
-    def test_insert(self, user, engine, schema_name):
+    def test_insert(self, user, engine, schema):
         with engine.begin() as connection:
-            activity = last_activity(connection, schema=schema_name)
+            activity = last_activity(connection, schema=schema)
         assert activity['old_data'] == {}
         assert activity['changed_data'] == {
             'id': user.id,
@@ -104,10 +104,10 @@ class TestCustomSchemaactivityCreation(object):
             "<Activity table_name='user' id=3>"
         )
 
-    def test_custom_actor_class(self, user_class, schema_name):
+    def test_custom_actor_class(self, user_class, schema):
         manager = AuditLogger(
             actor_cls=user_class,
-            schema_name=schema_name
+            schema=schema
         )
         manager.init(declarative_base())
         sa.orm.configure_mappers()
@@ -132,7 +132,7 @@ class TestCustomSchemaactivityCreation(object):
         )
         assert query.count() == 2
 
-    def test_custom_string_actor_class(self, schema_name):
+    def test_custom_string_actor_class(self, schema):
         base = declarative_base()
 
         class User(base):
@@ -142,7 +142,7 @@ class TestCustomSchemaactivityCreation(object):
         User()
         manager = AuditLogger(
             actor_cls='User',
-            schema_name=schema_name
+            schema=schema
         )
         manager.init(base)
         sa.orm.configure_mappers()

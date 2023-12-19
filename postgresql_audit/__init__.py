@@ -1,15 +1,3 @@
-from .base import (  # noqa
-    ImproperlyConfigured,
-    audit_logger,
-    AuditLogger
-)
-from .expressions import jsonb_change_key_name  # noqa
-from .migrations import (  # noqa
-    add_column,
-    alter_column,
-    change_column_name,
-    remove_column,
-    rename_table
-)
+from .base import AuditLogger
 
-__version__ = '0.17.1'
+__version__ = '1.0.0'

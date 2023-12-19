@@ -29,6 +29,8 @@ classifiers = [
 dependencies = [
     "SQLAlchemy-Utils>=0.37.0",
     "SQLAlchemy>=1.4",
+    "Flask>=2.3",
+    "Flask-SQLAlchemy>=3.0",
 ]
 
 [project.urls]

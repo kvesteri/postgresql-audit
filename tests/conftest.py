@@ -57,13 +57,13 @@ def session(engine):
 
 
 @pytest.fixture
-def schema_name():
+def schema():
     return None
 
 
 @pytest.fixture
-def audit_logger(base, schema_name):
-    al = AuditLogger(schema_name=schema_name)
+def audit_logger(base, schema):
+    al = AuditLogger(schema=schema)
     al.init(base)
     yield al
     al.remove_listeners()
