@@ -1,27 +1,18 @@
 import os
 import string
-import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
 
 from flask import request
-import sqlalchemy as sa
-from sqlalchemy import orm, text, literal_column, DDL
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text, literal_column, DDL, Table, func, event, Column, BigInteger, DateTime, Text, Integer, ForeignKey
+from sqlalchemy.orm import relationship, ColumnProperty
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
-from sqlalchemy.dialects.postgresql import (
-    ExcludeConstraint,
-    INET,
-    insert,
-    JSONB
-)
-from sqlalchemy.dialects.postgresql.base import PGDialect
-from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.dialects.postgresql import ExcludeConstraint, INET, insert, JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
-# from alembic_utils.pg_function import PGFunction
-# from alembic_utils.pg_extension import PGExtension
-# from alembic_utils.pg_trigger import PGTrigger
 
 from postgresql_audit import alembic
 
@@ -71,31 +62,6 @@ class PGTrigger:
         return text(f'DROP TRIGGER {self.signature} ON {self.table_name}')
 
 
-def read_file(file_):
-    with open(os.path.join(HERE, file_)) as f:
-        s = f.read()
-    return s
-
-
-def convert_callables(values):
-    return {
-        key: value() if callable(value) else value
-        for key, value in values.items()
-    }
-
-def default_actor_id():
-    from flask_login import current_user
-
-    try:
-        return current_user.id
-    except AttributeError:
-        return
-
-def default_client_addr():
-    # Return None if we are outside of request context.
-    return (request and request.remote_addr) or None
-
-
 class AuditLogger(object):
     _actor_cls = None
     writer = None
@@ -109,26 +75,18 @@ class AuditLogger(object):
         schema=None,
     ):
         self._actor_cls = actor_cls or 'User'
-        self.get_actor_id = get_actor_id or default_actor_id
-        self.get_client_addr = get_client_addr or default_client_addr
-        self.db = db
-        self.values = {}
+        self.get_actor_id = get_actor_id or _default_actor_id
+        self.get_client_addr = get_client_addr or _default_client_addr
         self.schema = schema
-        self.versioned_tables = set()
-        self.base = db.Model
-        self.transaction_cls = self.transaction_model_factory()
-        self.activity_cls = self.activity_model_factory()
-        self.detect_versioned_tables()
+        self.db = db
+        self.transaction_cls = _transaction_model_factory(db.Model, schema)
+        self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
+        self.versioned_tables = _detect_versioned_tables(db)
         self.attach_listeners()
         self.initialize_alembic_operations()
 
     def attach_listeners(self):
-        listeners = (
-            # (orm.Mapper, 'instrument_class', self.detect_versioned_tables),
-            (orm.session.Session, 'before_flush', self.receive_before_flush),
-        )
-        for listener in listeners:
-            sa.event.listen(*listener)
+        event.listen(Session, "before_flush", self.receive_before_flush)
 
     def initialize_alembic_operations(self):
         alembic.setup_schema(self)
@@ -238,15 +196,6 @@ class AuditLogger(object):
             create_sql=self.render_sql_template("create_activity.sql")
         )
 
-
-    def get_transaction_values(self):
-        if ('client_addr' not in self.values):
-            self.values['client_addr'] = self.get_client_addr()
-        if ('actor_id' not in self.values):
-            self.values['actor_id'] = self.get_actor_id()
-
-        return self.values
-
     @contextmanager
     def disable(self, session):
         session.execute(
@@ -264,7 +213,7 @@ class AuditLogger(object):
             )
 
     def render_sql_template(self, tmpl_name: str, as_text: bool = True, **kwargs) -> TextClause | DDL:
-        file_contents = read_file('templates/{}'.format(tmpl_name)).replace('$$', '$$$$')
+        file_contents = _read_file(f'templates/{tmpl_name}').replace('$$', '$$$$')
         tmpl = string.Template(file_contents)
         context = dict(schema=self.schema)
 
@@ -285,62 +234,16 @@ class AuditLogger(object):
         return text(sql)
 
     def receive_before_flush(self, session, flush_context, instances):
-        if self.is_session_modified(session):
-            self.save_transaction(session)
+        if _is_session_modified(session):
+            values = {
+                "native_transaction_id": func.txid_current(),
+                "issued_at": text("now() AT TIME ZONE 'UTC'"),
+                "client_addr": self.get_client_addr(),
+                "actor_id": self.get_actor_id(),
+            }
 
-    def is_session_modified(self, session):
-        return any(
-            self.is_entity_modified(entity) or entity in session.deleted
-            for entity in session
-            if entity.__table__.info.get('versioned') is not None
-        )
-
-    def is_entity_modified(self, entity):
-        versioned = entity.__table__.info.get('versioned')
-        if versioned is None:
-            raise ClassNotVersioned(entity.__class__.__name__)
-
-        excluded_cols = set(versioned.get('exclude', []))
-        modified_cols = {column.name for column in self.modified_columns(entity)}
-
-        return bool(modified_cols - excluded_cols)
-
-    def modified_columns(self, obj):
-        columns = set()
-        mapper = sa.inspect(obj.__class__)
-        for key, attr in sa.inspect(obj).attrs.items():
-            if key in mapper.synonyms.keys():
-                continue
-            prop = getattr(obj.__class__, key).property
-            if attr.history.has_changes():
-                columns |= set(
-                    prop.columns
-                    if isinstance(prop, sa.orm.ColumnProperty)
-                    else
-                    [local for local, remote in prop.local_remote_pairs]
-                )
-        return columns
-
-    def save_transaction(self, session):
-        transaction_mapper = sa.inspect(self.transaction_cls)
-        engine = session.get_bind(transaction_mapper)
-        dialect = engine.dialect
-        table = self.transaction_cls.__table__
-
-        if not isinstance(dialect, PGDialect):
-            warnings.warn(
-                '"{0}" is not a PostgreSQL dialect. No versioning data will '
-                'be saved.'.format(dialect.__class__),
-                RuntimeWarning
-            )
-            return
-
-        values = convert_callables(self.get_transaction_values())
-        if values:
-            values['native_transaction_id'] = sa.func.txid_current()
-            values['issued_at'] = sa.text("now() AT TIME ZONE 'UTC'")
             stmt = (
-                insert(table)
+                insert(self.transaction_cls)
                 .values(**values)
                 .on_conflict_do_nothing(
                     constraint='transaction_unique_native_tx_id'
@@ -348,20 +251,15 @@ class AuditLogger(object):
             )
             session.execute(stmt)
 
-    def detect_versioned_tables(self):
-        for table in self.db.metadata.tables.values():
-            if table.info.get("versioned") is not None:
-                self.versioned_tables.add(table)
-
     @property
     def actor_cls(self):
         if isinstance(self._actor_cls, str):
-            if not self.base:
+            if not self.db.Model:
                 raise ImproperlyConfigured(
                     'This manager does not have declarative base set up yet. '
                     'Call init method to set up this manager.'
                 )
-            registry = self.base.registry._class_registry
+            registry = self.db.Model.registry._class_registry
             try:
                 return registry[self._actor_cls]
             except KeyError:
@@ -378,86 +276,144 @@ class AuditLogger(object):
         return self._actor_cls
 
 
-    def transaction_model_factory(self):
-        class AuditLogTransaction(self.base):
-            __tablename__ = 'transaction'
+def _transaction_model_factory(base, schema):
+    class AuditLogTransaction(base):
+        __tablename__ = 'transaction'
 
-            id = sa.Column(sa.BigInteger, primary_key=True)
-            native_transaction_id = sa.Column(sa.BigInteger)
-            issued_at = sa.Column(sa.DateTime)
-            client_addr = sa.Column(INET)
-            actor_id = sa.Column(sa.Text)
+        id = Column(BigInteger, primary_key=True)
+        native_transaction_id = Column(BigInteger)
+        issued_at = Column(DateTime)
+        client_addr = Column(INET)
+        actor_id = Column(Text)
 
-            __table_args__ = (
-                ExcludeConstraint(
-                    (literal_column('native_transaction_id'), '='),
-                    (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
-                    name='transaction_unique_native_tx_id'
-                ),
-                {'schema': self.schema}
+        __table_args__ = (
+            ExcludeConstraint(
+                (literal_column('native_transaction_id'), '='),
+                (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
+                name='transaction_unique_native_tx_id'
+            ),
+            {'schema': schema}
+        )
+
+        def __repr__(self):
+            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
+                cls=self.__class__.__name__,
+                id=self.id,
+                issued_at=self.issued_at
             )
 
-            def __repr__(self):
-                return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
-                    cls=self.__class__.__name__,
-                    id=self.id,
-                    issued_at=self.issued_at
-                )
+    return AuditLogTransaction
 
-        return AuditLogTransaction
+def _activity_model_factory(base, schema_name, transaction_cls):
+    class AuditLogActivity(base):
+        __tablename__ = 'activity'
+        __table_args__ = {'schema': schema_name}
+
+        id = Column(BigInteger, primary_key=True)
+        schema = Column(Text)
+        table_name = Column(Text)
+        relid = Column(Integer)
+        issued_at = Column(DateTime)
+        native_transaction_id = Column(BigInteger, index=True)
+        verb = Column(Text)
+        old_data = Column(JSONB, default={}, server_default='{}')
+        changed_data = Column(JSONB, default={}, server_default='{}')
+        transaction_id = Column(BigInteger, ForeignKey(transaction_cls.id))
+
+        transaction = relationship(transaction_cls, backref='activities')
+
+        @hybrid_property
+        def data(self):
+            data = self.old_data.copy() if self.old_data else {}
+            if self.changed_data:
+                data.update(self.changed_data)
+            return data
+
+        @data.expression
+        def data(cls):
+            return cls.old_data + cls.changed_data
+
+        @property
+        def object(self):
+            table = base.metadata.tables[self.table_name]
+            cls = get_class_by_table(base, table, self.data)
+            return cls(**self.data)
+
+        def __repr__(self):
+            return (
+                '<{cls} table_name={table_name!r} '
+                'id={id!r}>'
+            ).format(
+                cls=self.__class__.__name__,
+                table_name=self.table_name,
+                id=self.id
+            )
+
+    return AuditLogActivity
 
 
-    def activity_model_factory(self):
-        class AuditLogActivity(self.base):
-            __tablename__ = 'activity'
-            __table_args__ = {'schema': self.schema}
+def _read_file(file):
+    with open(os.path.join(HERE, file)) as f:
+        s = f.read()
+    return s
 
-            id = sa.Column(sa.BigInteger, primary_key=True)
-            schema = sa.Column(sa.Text)
-            table_name = sa.Column(sa.Text)
-            relid = sa.Column(sa.Integer)
-            issued_at = sa.Column(sa.DateTime)
-            native_transaction_id = sa.Column(sa.BigInteger, index=True)
-            verb = sa.Column(sa.Text)
-            old_data = sa.Column(JSONB, default={}, server_default='{}')
-            changed_data = sa.Column(JSONB, default={}, server_default='{}')
 
-            @declared_attr
-            def transaction_id(cls):
-                return sa.Column(
-                    sa.BigInteger,
-                    sa.ForeignKey(self.transaction_cls.id)
-                )
+def _default_actor_id():
+    from flask_login import current_user
 
-            @declared_attr
-            def transaction(cls):
-                return sa.orm.relationship(self.transaction_cls, backref='activities')
+    try:
+        return current_user.id
+    except AttributeError:
+        return
 
-            @hybrid_property
-            def data(self):
-                data = self.old_data.copy() if self.old_data else {}
-                if self.changed_data:
-                    data.update(self.changed_data)
-                return data
 
-            @data.expression
-            def data(cls):
-                return cls.old_data + cls.changed_data
+def _default_client_addr():
+    # Return None if we are outside of request context.
+    return (request and request.remote_addr) or None
 
-            @property
-            def object(self):
-                table = self.base.metadata.tables[self.table_name]
-                cls = get_class_by_table(self.base, table, self.data)
-                return cls(**self.data)
 
-            def __repr__(self):
-                return (
-                    '<{cls} table_name={table_name!r} '
-                    'id={id!r}>'
-                ).format(
-                    cls=self.__class__.__name__,
-                    table_name=self.table_name,
-                    id=self.id
-                )
+def _detect_versioned_tables(db: SQLAlchemy) -> set[Table]:
+    versioned_tables = set()
 
-        return AuditLogActivity
+    for table in db.metadata.tables.values():
+        if table.info.get("versioned") is not None:
+            versioned_tables.add(table)
+
+    return versioned_tables
+
+
+def _is_session_modified(session: Session) -> bool:
+    return any(
+        _is_entity_modified(entity) or entity in session.deleted
+        for entity in session
+        if entity.__table__.info.get('versioned') is not None
+    )
+
+
+def _is_entity_modified(entity) -> bool:
+    versioned = entity.__table__.info.get('versioned')
+    if versioned is None:
+        raise ClassNotVersioned(entity.__class__.__name__)
+
+    excluded_cols = set(versioned.get('exclude', []))
+    modified_cols = {column.name for column in _modified_columns(entity)}
+
+    return bool(modified_cols - excluded_cols)
+
+
+def _modified_columns(obj):
+    columns = set()
+    mapper = inspect(obj.__class__)
+    for key, attr in inspect(obj).attrs.items():
+        if key in mapper.synonyms.keys():
+            continue
+        prop = getattr(obj.__class__, key).property
+        if attr.history.has_changes():
+            columns |= set(
+                prop.columns
+                if isinstance(prop, ColumnProperty)
+                else
+                [local for local, remote in prop.local_remote_pairs]
+            )
+
+    return columns
