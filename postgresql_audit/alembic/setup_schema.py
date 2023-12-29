@@ -1,4 +1,3 @@
-from sqlalchemy import DDL
 from alembic.autogenerate import renderers, comparators
 from alembic.operations import MigrateOperation, Operations
 
