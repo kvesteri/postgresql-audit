@@ -15,7 +15,7 @@ time. This can get a bit tedious if your schema is quickly evolving.
 Changing column name
 --------------------
 
-.. module:: postgresql_audit.migrations
+.. module:: flask_audit_logger.migrations
 
 .. autofunction:: change_column_name
 

@@ -12,7 +12,7 @@ jobs:
       postgres:
         image: postgres:${{ matrix.postgresql-version }}
         env:
-          POSTGRES_DB: postgresql_audit_test
+          POSTGRES_DB: flask_audit_logger_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         # Set health checks to wait until postgres has started
@@ -66,5 +66,5 @@ jobs:
 
       - name: Run tests
         env:
-          POSTGRESQL_AUDIT_TEST_PASSWORD: postgres
+          FLASK_AUDIT_LOGGER_TEST_PASSWORD: postgres
         run: tox -e ${{ matrix.tox }}

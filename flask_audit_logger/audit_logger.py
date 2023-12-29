@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import ExcludeConstraint, INET, insert, JSON
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import get_class_by_table
 
-from postgresql_audit import alembic
+from flask_audit_logger import alembic
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -200,7 +200,7 @@ class AuditLogger(object):
     def disable(self, session):
         session.execute(
             text(
-                "SET LOCAL postgresql_audit.enable_versioning = 'false'"
+                "SET LOCAL flask_audit_logger.enable_versioning = 'false'"
             )
         )
         try:
@@ -208,7 +208,7 @@ class AuditLogger(object):
         finally:
             session.execute(
                 text(
-                    "SET LOCAL postgresql_audit.enable_versioning = 'true'"
+                    "SET LOCAL flask_audit_logger.enable_versioning = 'true'"
                 )
             )
 

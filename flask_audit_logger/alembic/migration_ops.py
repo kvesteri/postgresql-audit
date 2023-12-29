@@ -1,7 +1,7 @@
 from alembic.autogenerate import renderers, rewriter
 from alembic.operations import MigrateOperation, Operations, ops
 
-from postgresql_audit.migrations import add_column, remove_column
+from flask_audit_logger.migrations import add_column, remove_column
 
 
 def init_migration_ops(schema: str):

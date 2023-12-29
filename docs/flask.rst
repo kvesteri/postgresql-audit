@@ -20,7 +20,7 @@ integration provides along with:
 .. code-block:: python
 
 
-    from postgresql_audit.flask import audit_logger
+    from flask_audit_logger.flask import audit_logger
 
     from my_app.extensions import db
 
@@ -50,7 +50,7 @@ For example, consider the following model structure with ``Article`` and
 ``Tag``. Let's say we want to show the changelog of an article that contains all
 changes to this article and its tags::
 
-    from postgresql_audit.flask import audit_logger
+    from flask_audit_logger.flask import audit_logger
 
     from my_app.extensions import db
 
@@ -85,7 +85,7 @@ When tracking the changes to article, we don't need any changes::
 When adding tags, we need to make the generated activities use the article id as
 the ``target_id`` so that we can track them later on::
 
-    from postgresql_audit.flask import activity_values
+    from flask_audit_logger.flask import activity_values
 
 
     with activity_values(target_id=str(article.id)):

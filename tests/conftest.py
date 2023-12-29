@@ -6,22 +6,22 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import close_all_sessions, declarative_base, sessionmaker
 
-from postgresql_audit import AuditLogger
+from flask_audit_logger import AuditLogger
 
 
 @pytest.fixture
 def db_user():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_USER', 'postgres')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_USER', 'postgres')
 
 
 @pytest.fixture
 def db_password():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_PASSWORD', '')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_PASSWORD', '')
 
 
 @pytest.fixture
 def db_name():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_DB', 'flask_audit_logger_test')
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def base():
 @pytest.fixture
 def engine(dns):
     engine = create_engine(dns, future=True)
-    engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
+    engine.echo = bool(os.environ.get('FLASK_AUDIT_LOGGER_TEST_ECHO'))
 
     with engine.begin() as conn:
         conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))

@@ -15,7 +15,7 @@ SQLAlchemy ORM. It has the following features:
 .. code-block:: python
 
 
-    from postgresql_audit import audit_logger
+    from flask_audit_logger import audit_logger
 
 
     audit_logger.init(Base)

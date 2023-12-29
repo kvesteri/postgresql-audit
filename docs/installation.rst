@@ -48,6 +48,6 @@ and check the installed version:
 
 .. parsed-literal::
 
-    >>> import postgresql_audit
-    >>> postgresql_audit.__version__
+    >>> import flask_audit_logger
+    >>> flask_audit_logger.__version__
     |release|

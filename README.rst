@@ -39,7 +39,7 @@ Add the following to your models.py (or equivalent file)
 
     from flask_migrate import Migrate
     from flask_sqlalchemy import SQLAlchemy
-    from postgresql_audit.flask import AuditLogger
+    from flask_audit_logger.flask import AuditLogger
 
     db = SQLAlchemy()
     migrate = Migrate()
@@ -107,7 +107,7 @@ Running the tests
     git clone https://github.com/kvesteri/postgresql-audit.git
     cd postgresql-audit
     pip install tox
-    createdb postgresql_audit_test
+    createdb flask_audit_logger_test
     tox
 
 
@@ -117,7 +117,7 @@ Flask extension
 .. code-block:: python
 
 
-    from postgresql_audit.flask import audit_logger
+    from flask_audit_logger.flask import audit_logger
 
     from my_app.extensions import db
 

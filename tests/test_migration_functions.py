@@ -1,7 +1,7 @@
 import pytest
 import sqlalchemy as sa
 
-from postgresql_audit import (
+from flask_audit_logger import (
     add_column,
     alter_column,
     change_column_name,
