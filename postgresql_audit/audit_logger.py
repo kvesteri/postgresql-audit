@@ -23,10 +23,6 @@ class ImproperlyConfigured(Exception):
     pass
 
 
-class ClassNotVersioned(Exception):
-    pass
-
-
 @dataclass
 class PGExtension:
     schema: str
@@ -86,7 +82,11 @@ class AuditLogger(object):
         self.initialize_alembic_operations()
 
     def attach_listeners(self):
+        """ Listeners save transaction records with actor_ids when versioned tables are affected.
+         Flush events occur when a mapped object is created or modified. ORM Execute events occur
+         when an insert()/update()/delete() is passed to session.execute(). """
         event.listen(Session, "before_flush", self.receive_before_flush)
+        event.listen(Session, "do_orm_execute", self.receive_do_orm_execute)
 
     def initialize_alembic_operations(self):
         alembic.setup_schema(self)
@@ -233,32 +233,39 @@ class AuditLogger(object):
 
         return text(sql)
 
-    def receive_before_flush(self, session, flush_context, instances):
-        if _is_session_modified(session):
-            values = {
-                "native_transaction_id": func.txid_current(),
-                "issued_at": text("now() AT TIME ZONE 'UTC'"),
-                "client_addr": self.get_client_addr(),
-                "actor_id": self.get_actor_id(),
-            }
+    def receive_do_orm_execute(self, orm_execute_state):
+        is_write = orm_execute_state.is_insert or orm_execute_state.is_update or orm_execute_state.is_delete
+        affects_versioned_table = any(m.local_table in self.versioned_tables for m in orm_execute_state.all_mappers)
+        if is_write and affects_versioned_table:
+            self.save_transaction(orm_execute_state.session)
 
-            stmt = (
-                insert(self.transaction_cls)
-                .values(**values)
-                .on_conflict_do_nothing(
-                    constraint='transaction_unique_native_tx_id'
-                )
+
+    def receive_before_flush(self, session, flush_context, instances):
+        if _is_session_modified(session, self.versioned_tables):
+            self.save_transaction(session)
+
+    def save_transaction(self, session):
+        values = {
+            "native_transaction_id": func.txid_current(),
+            "issued_at": text("now() AT TIME ZONE 'UTC'"),
+            "client_addr": self.get_client_addr(),
+            "actor_id": self.get_actor_id(),
+        }
+
+        stmt = (
+            insert(self.transaction_cls)
+            .values(**values)
+            .on_conflict_do_nothing(
+                constraint='transaction_unique_native_tx_id'
             )
-            session.execute(stmt)
+        )
+        session.execute(stmt)
 
     @property
     def actor_cls(self):
         if isinstance(self._actor_cls, str):
             if not self.db.Model:
-                raise ImproperlyConfigured(
-                    'This manager does not have declarative base set up yet. '
-                    'Call init method to set up this manager.'
-                )
+                raise ImproperlyConfigured('No SQLAlchemy db object')
             registry = self.db.Model.registry._class_registry
             try:
                 return registry[self._actor_cls]
@@ -382,19 +389,16 @@ def _detect_versioned_tables(db: SQLAlchemy) -> set[Table]:
     return versioned_tables
 
 
-def _is_session_modified(session: Session) -> bool:
+def _is_session_modified(session: Session, versioned_tables: set[Table]) -> bool:
     return any(
         _is_entity_modified(entity) or entity in session.deleted
         for entity in session
-        if entity.__table__.info.get('versioned') is not None
+        if entity.__table__ in versioned_tables
     )
 
 
 def _is_entity_modified(entity) -> bool:
     versioned = entity.__table__.info.get('versioned')
-    if versioned is None:
-        raise ClassNotVersioned(entity.__class__.__name__)
-
     excluded_cols = set(versioned.get('exclude', []))
     modified_cols = {column.name for column in _modified_columns(entity)}
 
