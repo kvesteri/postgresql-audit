@@ -1,7 +1,5 @@
 # Flask Audit Logger
 
-[//]: # (|Build Status| |Version Status| |Downloads|)
-
 Auditing extension for [Flask](https://flask.palletsprojects.com/en/3.0.x/) using [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/en/3.1.x/), [Alembic](https://alembic.sqlalchemy.org/en/latest/index.html), and [PostgreSQL](https://www.postgresql.org/).
 This package tracks all every version of a set of target tables along with the actor ID who made the modification.
 This project was forked from [PostgreSQL-Audit](https://github.com/kvesteri/postgresql-audit), but makes not attempt to maintain backwards compatability.
