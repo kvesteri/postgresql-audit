@@ -366,12 +366,15 @@ def _read_file(file):
 
 
 def _default_actor_id():
-    from flask_login import current_user
+    try:
+        from flask_login import current_user
+    except ImportError:
+        return None
 
     try:
         return current_user.id
     except AttributeError:
-        return
+        return None
 
 
 def _default_client_addr():
