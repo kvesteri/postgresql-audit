@@ -1,5 +1,0 @@
-flask
-flask-sqlalchemy
-flask-login
-psycopg2
-pytest

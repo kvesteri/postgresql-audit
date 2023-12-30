@@ -3,14 +3,14 @@ requires      = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "postgresql-audit"
+name = "flask-audit-logger"
 dynamic = ["version"]
 description = "Versioning and auditing extension for PostgreSQL and SQLAlchemy."
-readme = "README.rst"
+readme = "README.md"
 license = "bsd-2-clause"
 requires-python = ">=3.8"
 authors = [
-    { name = "Konsta Vesterinen", email = "konsta@fastmonkeys.com" },
+    { name = "Garrett Massman", email = "gmassman20@gmail.com" },
 ]
 classifiers = [
     "Environment :: Web Environment",
@@ -31,10 +31,11 @@ dependencies = [
     "SQLAlchemy>=1.4",
     "Flask>=2.3",
     "Flask-SQLAlchemy>=3.0",
+    "Alembic>=1.13",
 ]
 
 [project.urls]
-Homepage = "https://github.com/kvesteri/postgresql-audit"
+Homepage = "https://github.com/gmassman/flask-audit-logger"
 
 [tool.hatch.version]
 path = "flask_audit_logger/__init__.py"

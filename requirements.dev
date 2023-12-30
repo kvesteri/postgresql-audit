@@ -1,0 +1,9 @@
+black>=23.12
+flake8>=6.1
+flask-login~=0.6
+flask-sqlalchemy~=3.1
+flask~=3.0
+isort>=5.13
+psycopg~=3.1
+pytest>=7.4
+sqlalchemy~=2.0
