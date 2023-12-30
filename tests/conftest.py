@@ -6,22 +6,22 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import close_all_sessions, declarative_base, sessionmaker
 
-from postgresql_audit import VersioningManager
+from flask_audit_logger import AuditLogger
 
 
 @pytest.fixture
 def db_user():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_USER', 'postgres')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_USER', 'postgres')
 
 
 @pytest.fixture
 def db_password():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_PASSWORD', '')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_PASSWORD', '')
 
 
 @pytest.fixture
 def db_name():
-    return os.environ.get('POSTGRESQL_AUDIT_TEST_DB', 'postgresql_audit_test')
+    return os.environ.get('FLASK_AUDIT_LOGGER_TEST_DB', 'flask_audit_logger_test')
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def base():
 @pytest.fixture
 def engine(dns):
     engine = create_engine(dns, future=True)
-    engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
+    engine.echo = bool(os.environ.get('FLASK_AUDIT_LOGGER_TEST_ECHO'))
 
     with engine.begin() as conn:
         conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
@@ -57,26 +57,26 @@ def session(engine):
 
 
 @pytest.fixture
-def schema_name():
+def schema():
     return None
 
 
 @pytest.fixture
-def versioning_manager(base, schema_name):
-    vm = VersioningManager(schema_name=schema_name)
-    vm.init(base)
-    yield vm
-    vm.remove_listeners()
+def audit_logger(base, schema):
+    al = AuditLogger(schema=schema)
+    al.init(base)
+    yield al
+    al.remove_listeners()
 
 
 @pytest.fixture
-def activity_cls(versioning_manager):
-    return versioning_manager.activity_cls
+def activity_cls(audit_logger):
+    return audit_logger.activity_cls
 
 
 @pytest.fixture
-def transaction_cls(versioning_manager):
-    return versioning_manager.transaction_cls
+def transaction_cls(audit_logger):
+    return audit_logger.transaction_cls
 
 
 @pytest.fixture
@@ -112,15 +112,15 @@ def models(user_class, article_class):
 @pytest.fixture
 def table_creator(
     base,
-    versioning_manager,
+    audit_logger,
     engine,
     models
 ):
     sa.orm.configure_mappers()
 
     with engine.begin() as connection:
-        versioning_manager.transaction_cls.__table__.create(connection)
-        versioning_manager.activity_cls.__table__.create(connection)
+        audit_logger.transaction_cls.__table__.create(connection)
+        audit_logger.activity_cls.__table__.create(connection)
         base.metadata.create_all(connection)
 
     yield

@@ -30,7 +30,7 @@ def alter_column(conn, table, column_name, func, schema=None):
     ::
 
         from alembic import op
-        from postgresql_audit import alter_column
+        from flask_audit_logger import alter_column
 
 
         def upgrade():
@@ -107,7 +107,7 @@ def change_column_name(
     ::
 
         from alembic import op
-        from postgresql_audit import change_column_name
+        from flask_audit_logger import change_column_name
 
 
         def upgrade():
@@ -164,7 +164,7 @@ def add_column(conn, table, column_name, default_value=None, schema=None):
 
         import sqlalchemy as sa
         from alembic import op
-        from postgresql_audit import add_column
+        from flask_audit_logger import add_column
 
 
         def upgrade():
@@ -228,7 +228,7 @@ def remove_column(conn, table, column_name, schema=None):
     ::
 
         from alembic import op
-        from postgresql_audit import remove_column
+        from flask_audit_logger import remove_column
 
 
         def upgrade():
@@ -268,7 +268,7 @@ def rename_table(conn, old_table_name, new_table_name, schema=None):
     ::
 
         from alembic import op
-        from postgresql_audit import rename_table
+        from flask_audit_logger import rename_table
 
 
         def upgrade():

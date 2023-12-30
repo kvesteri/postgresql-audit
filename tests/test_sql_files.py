@@ -6,7 +6,7 @@ from sqlalchemy import text
 from .utils import last_activity
 
 
-@pytest.mark.usefixtures('versioning_manager', 'table_creator')
+@pytest.mark.usefixtures('audit_logger', 'table_creator')
 class TestActivityCreationWithColumnExclusion(object):
     @pytest.fixture
     def audit_trigger_creator(self, engine, user_class):

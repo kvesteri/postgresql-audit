@@ -1,7 +1,7 @@
 import pytest
 import sqlalchemy as sa
 
-from postgresql_audit import jsonb_change_key_name
+from flask_audit_logger import jsonb_change_key_name
 
 
 @pytest.mark.usefixtures('activity_cls', 'table_creator')
