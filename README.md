@@ -96,20 +96,41 @@ def run_migrations_online():
 ```
 
 ### Customizing actor_cls
-... TODO ...
+The `AuditLogger.actor_cls` should align with your current_user type.
+By default, this package assumes the `User` model is also the actor class.
+This can be customized by passing in the model name as a string when the AuditLogger is created.
+```python
+audit_logger = AuditLogger(db, actor_cls="SuperUser")
+```
+This model will be used to populate the `AuditLogTransaction.actor` relationship.
+For example, the following query loads the first activity and its responsible actor.
+```python
+AuditLogActivity = audit_logger.activity_cls
+AuditLogTransaction = audit_logger.transaction_cls
+
+activity = db.session.scalar(
+    select(AuditLogActivity)
+    .options(joinedload(AuditLogActivity.transaction).joinedload(AuditLogTransaction.actor))
+    .limit(1)
+)
+
+print(activity.transaction.actor)
+<SuperUser 123456>
+```
+
 
 ### Excluding Columns
 You may want to ignore version tracking on specific database columns.
 This can be done by adding `"exclude"` with a list of column names to `__table_args__`.
 ```python
 # app/models.py
-
 class User(db.Model):
     __tablename__ = "users"
     __table_args__ = ({"info": {"versioned": {"exclude": ["hair_color"]}}},)
     id = Column(BigInteger, primary_key=True, auto_increment=True)
     name = Column(String)
     hair_color = Column(String)
+
 
 # flask db migrate -m 'exclude hair_color'
 #   migrations/versions/xxxx_exclude_hair_color.py

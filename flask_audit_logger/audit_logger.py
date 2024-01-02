@@ -75,7 +75,7 @@ class AuditLogger(object):
         self.get_client_addr = get_client_addr or _default_client_addr
         self.schema = schema
         self.db = db
-        self.transaction_cls = _transaction_model_factory(db.Model, schema)
+        self.transaction_cls = _transaction_model_factory(db.Model, schema, self.actor_cls)
         self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
         self.versioned_tables = _detect_versioned_tables(db)
         self.attach_listeners()
@@ -271,19 +271,20 @@ class AuditLogger(object):
                 return registry[self._actor_cls]
             except KeyError:
                 raise ImproperlyConfigured(
-                    'Could not build relationship between Activity'
-                    ' and %s. %s was not found in declarative class '
-                    'registry. Either configure AuditLogger to '
-                    'use different actor class or disable this '
-                    'relationship by setting it to None.' % (
-                        self._actor_cls,
-                        self._actor_cls
-                    )
+                    f"""Could not build relationship between AuditLogActivity
+                    and {self._actor_cls}. {self._actor_cls} was not found in
+                    declarative class registry. Either configure AuditLogger to
+                    use different actor class or disable this relationship by
+                    setting it to None."""
                 )
         return self._actor_cls
 
 
-def _transaction_model_factory(base, schema):
+def _transaction_model_factory(base, schema, actor_cls):
+    if actor_cls:
+        actor_pk = inspect(actor_cls).primary_key[0]
+        actor_fk = ForeignKey(f"{actor_cls.__table__.name}.{actor_pk.name}")
+
     class AuditLogTransaction(base):
         __tablename__ = 'transaction'
 
@@ -291,7 +292,11 @@ def _transaction_model_factory(base, schema):
         native_transaction_id = Column(BigInteger)
         issued_at = Column(DateTime)
         client_addr = Column(INET)
-        actor_id = Column(Text)
+        if actor_cls:
+            actor_id = Column(actor_pk.type, actor_fk)
+            actor = relationship(actor_cls)
+        else:
+            actor_id = Column(Text)
 
         __table_args__ = (
             ExcludeConstraint(
@@ -310,6 +315,7 @@ def _transaction_model_factory(base, schema):
             )
 
     return AuditLogTransaction
+
 
 def _activity_model_factory(base, schema_name, transaction_cls):
     class AuditLogActivity(base):
