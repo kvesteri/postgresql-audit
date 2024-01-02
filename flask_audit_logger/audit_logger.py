@@ -30,11 +30,11 @@ class PGExtension:
 
     @property
     def create_sql(self):
-        return text(f"CREATE EXTENSION {self.signature} WITH SCHEMA {self.schema}")
+        return text(f"CREATE EXTENSION IF NOT EXISTS {self.signature} WITH SCHEMA {self.schema}")
 
     @property
     def drop_sql(self):
-        return text(f"DROP EXTENSION {self.signature}")
+        return text(f"DROP EXTENSION IF EXISTS {self.signature}")
 
 @dataclass
 class PGFunction:
@@ -44,7 +44,7 @@ class PGFunction:
 
     @property
     def drop_sql(self):
-        return text(f'DROP FUNCTION {self.schema}.{self.signature} CASCADE')
+        return text(f'DROP FUNCTION IF EXISTS {self.schema}.{self.signature} CASCADE')
 
 @dataclass
 class PGTrigger:
@@ -55,7 +55,7 @@ class PGTrigger:
 
     @property
     def drop_sql(self):
-        return text(f'DROP TRIGGER {self.signature} ON {self.table_name}')
+        return text(f'DROP TRIGGER IF EXISTS {self.signature} ON {self.table_name}')
 
 
 class AuditLogger(object):

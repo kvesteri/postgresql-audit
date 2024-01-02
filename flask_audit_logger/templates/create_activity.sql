@@ -1,4 +1,4 @@
-CREATE FUNCTION ${schema_prefix}create_activity()
+CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity()
 RETURNS TRIGGER AS $$
 DECLARE
     audit_row ${schema_prefix}activity;

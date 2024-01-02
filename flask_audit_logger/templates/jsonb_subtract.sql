@@ -1,4 +1,4 @@
-CREATE FUNCTION ${schema_prefix}jsonb_subtract(arg1 jsonb, arg2 jsonb)
+CREATE OR REPLACE FUNCTION ${schema_prefix}jsonb_subtract(arg1 jsonb, arg2 jsonb)
 RETURNS jsonb AS $$
 SELECT
   COALESCE(json_object_agg(key, value), '{}')::jsonb

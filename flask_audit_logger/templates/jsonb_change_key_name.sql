@@ -1,4 +1,4 @@
-CREATE FUNCTION ${schema_prefix}jsonb_change_key_name(data jsonb, old_key text, new_key text)
+CREATE OR REPLACE FUNCTION ${schema_prefix}jsonb_change_key_name(data jsonb, old_key text, new_key text)
 RETURNS jsonb
 IMMUTABLE
 LANGUAGE sql
