@@ -1,6 +1,6 @@
-from sqlalchemy import text
-from alembic.autogenerate import renderers, comparators
+from alembic.autogenerate import comparators, renderers
 from alembic.operations import MigrateOperation, Operations
+from sqlalchemy import text
 
 
 def setup_schema(audit_logger):
@@ -33,7 +33,7 @@ def setup_schema(audit_logger):
         operations.execute(audit_logger.render_sql_template("create_schema.sql", as_text=False))
 
     @Operations.implementation_for(RemoveAuditLoggerSchemaOp)
-    def remove_audit_logger_function(operations, operation):
+    def remove_audit_logger_schema(operations, operation):
         operations.execute(audit_logger.render_sql_template("drop_schema.sql", as_text=False))
 
     @renderers.dispatch_for(InitAuditLoggerSchemaOp)
@@ -87,7 +87,7 @@ def setup_schema(audit_logger):
         operations.execute(audit_logger.pg_btree_gist_extension.create_sql)
 
     @Operations.implementation_for(RemoveAuditLoggerExtensionOp)
-    def remove_audit_logger_function(operations, operation):
+    def remove_audit_logger_extension(operations, operation):
         assert operation.extension == "btree_gist"
         operations.execute(audit_logger.pg_btree_gist_extension.drop_sql)
 

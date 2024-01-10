@@ -1,15 +1,14 @@
-from contextlib import contextmanager, redirect_stdout
 import os
+import shutil
+from contextlib import contextmanager, redirect_stdout
 from io import StringIO
 from pathlib import Path
-from typing import Callable, NoReturn, Any
-import shutil
+from typing import Any, Callable, NoReturn
 
-from sqlalchemy import text, Engine
-from flask_sqlalchemy import SQLAlchemy
-from alembic.config import Config
 from alembic import command as alem_command
-
+from alembic.config import Config
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Engine, text
 
 REPO_ROOT = Path(os.path.abspath(os.path.dirname(__file__))).parent.resolve()
 

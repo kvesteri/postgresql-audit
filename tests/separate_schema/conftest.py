@@ -1,9 +1,10 @@
-import pytest
 from datetime import datetime
-from sqlalchemy.orm import sessionmaker, scoped_session
 
-from tests.utils import run_audit_logger_migrations, REPO_ROOT
-from tests.separate_schema.flask_app import db, app, Article, User
+import pytest
+from sqlalchemy.orm import scoped_session, sessionmaker
+
+from tests.separate_schema.flask_app import Article, User, app, db
+from tests.utils import REPO_ROOT, run_audit_logger_migrations
 
 ALEMBIC_CONFIG = REPO_ROOT / "tests" / "separate_schema" / "alembic_config"
 

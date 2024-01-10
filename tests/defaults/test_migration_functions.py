@@ -1,5 +1,6 @@
 import pytest
-from sqlalchemy import select, cast, Text
+from sqlalchemy import Text, cast, select
+
 from flask_audit_logger.migrations import (
     add_column,
     alter_column,
@@ -7,7 +8,7 @@ from flask_audit_logger.migrations import (
     remove_column,
     rename_table,
 )
-from tests.defaults.flask_app import db, AuditLogActivity
+from tests.defaults.flask_app import AuditLogActivity, db
 
 
 @pytest.mark.usefixtures("test_client")

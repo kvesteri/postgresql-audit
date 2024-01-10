@@ -1,5 +1,5 @@
 black>=23.12
-flake8>=6.1
+ruff~=0.1.11
 flask-login~=0.6
 flask-sqlalchemy~=3.1
 flask~=3.0

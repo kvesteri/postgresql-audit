@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select
 
-from tests.custom_actor.flask_app import db, AuditLogActivity
+from tests.custom_actor.flask_app import AuditLogActivity, db
 
 
 @pytest.mark.usefixtures("test_client")

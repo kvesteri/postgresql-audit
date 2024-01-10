@@ -7,25 +7,25 @@ from functools import cached_property
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (
-    inspect,
-    text,
-    literal_column,
     DDL,
-    Table,
-    func,
-    event,
-    Column,
     BigInteger,
+    Column,
     DateTime,
-    Text,
-    Integer,
     ForeignKey,
+    Integer,
+    Table,
+    Text,
+    event,
+    func,
+    inspect,
+    literal_column,
+    text,
 )
-from sqlalchemy.orm import relationship, ColumnProperty
+from sqlalchemy.dialects.postgresql import INET, JSONB, ExcludeConstraint, insert
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import ColumnProperty, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
-from sqlalchemy.dialects.postgresql import ExcludeConstraint, INET, insert, JSONB
-from sqlalchemy.ext.hybrid import hybrid_property
 
 from flask_audit_logger import alembic
 

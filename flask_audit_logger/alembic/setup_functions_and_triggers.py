@@ -1,9 +1,9 @@
 import re
-from collections import namedtuple, defaultdict
+from collections import defaultdict, namedtuple
 
-from sqlalchemy import text
-from alembic.autogenerate import renderers, comparators
+from alembic.autogenerate import comparators, renderers
 from alembic.operations import MigrateOperation, Operations
+from sqlalchemy import text
 
 
 def setup_functions_and_triggers(audit_logger):

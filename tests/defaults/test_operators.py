@@ -1,6 +1,6 @@
 import json
-import pytest
 
+import pytest
 from sqlalchemy import text
 
 from tests.defaults.flask_app import db

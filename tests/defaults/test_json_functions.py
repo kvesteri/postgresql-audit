@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import text, select
+from sqlalchemy import select, text
 
 from flask_audit_logger.expressions import jsonb_change_key_name
 from tests.defaults.flask_app import db

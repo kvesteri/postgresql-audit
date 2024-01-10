@@ -1,9 +1,8 @@
 import pytest
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import scoped_session, sessionmaker
 
-from tests.utils import run_audit_logger_migrations, REPO_ROOT
-from tests.custom_actor.flask_app import db, app, SuperUser, audit_logger
-
+from tests.custom_actor.flask_app import SuperUser, app, audit_logger, db
+from tests.utils import REPO_ROOT, run_audit_logger_migrations
 
 ALEMBIC_CONFIG = REPO_ROOT / "tests" / "custom_actor" / "alembic_config"
 

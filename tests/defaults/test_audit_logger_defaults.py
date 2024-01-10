@@ -1,7 +1,7 @@
 import pytest
-from sqlalchemy import select, func, insert
+from sqlalchemy import func, insert, select
 
-from tests.defaults.flask_app import db, User, AuditLogActivity
+from tests.defaults.flask_app import AuditLogActivity, User, db
 
 
 @pytest.mark.usefixtures("test_client")

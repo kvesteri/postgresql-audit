@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select, text
 
-from tests.separate_schema.flask_app import db, AuditLogActivity, audit_logger
+from tests.separate_schema.flask_app import AuditLogActivity, audit_logger, db
 
 
 @pytest.mark.usefixtures("test_client")

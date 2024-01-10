@@ -1,12 +1,11 @@
 import os
 from dataclasses import asdict
-from typing import Optional, Literal
+from typing import Optional
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, MappedAsDataclass
+from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 from flask_audit_logger import AuditLogger
 
