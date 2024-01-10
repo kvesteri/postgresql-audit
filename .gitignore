@@ -59,3 +59,4 @@ target/
 
 .idea/
 .venv/
+.pytest_cache/

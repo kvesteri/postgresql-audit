@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .expressions import jsonb_change_key_name
@@ -6,13 +7,13 @@ from .expressions import jsonb_change_key_name
 
 def get_activity_table(schema=None):
     return sa.Table(
-        'activity',
+        "activity",
         sa.MetaData(),
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('table_name', sa.String),
-        sa.Column('verb', sa.String),
-        sa.Column('old_data', JSONB),
-        sa.Column('changed_data', JSONB),
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("table_name", sa.String),
+        sa.Column("verb", sa.String),
+        sa.Column("old_data", JSONB),
+        sa.Column("changed_data", JSONB),
         schema=schema,
     )
 
@@ -64,42 +65,35 @@ def alter_column(conn, table, column_name, func, schema=None):
     """
     activity_table = get_activity_table(schema=schema)
     query = (
-        activity_table
-        .update()
+        update(activity_table)
         .values(
             old_data=(
-                activity_table.c.old_data +
-                sa.cast(sa.func.json_build_object(
-                    column_name,
-                    func(
-                        activity_table.c.old_data[column_name],
-                        activity_table
-                    )
-                ), JSONB)
+                activity_table.c.old_data
+                + sa.cast(
+                    sa.func.json_build_object(
+                        column_name,
+                        func(activity_table.c.old_data[column_name], activity_table),
+                    ),
+                    JSONB,
+                )
             ),
             changed_data=(
-                activity_table.c.changed_data +
-                sa.cast(sa.func.json_build_object(
-                    column_name,
-                    func(
-                        activity_table.c.changed_data[column_name],
-                        activity_table
-                    )
-                ), JSONB)
-            )
+                activity_table.c.changed_data
+                + sa.cast(
+                    sa.func.json_build_object(
+                        column_name,
+                        func(activity_table.c.changed_data[column_name], activity_table),
+                    ),
+                    JSONB,
+                )
+            ),
         )
         .where(activity_table.c.table_name == table)
     )
     return conn.execute(query)
 
 
-def change_column_name(
-    conn,
-    table,
-    old_column_name,
-    new_column_name,
-    schema=None
-):
+def change_column_name(conn, table, old_column_name, new_column_name, schema=None):
     """
     Changes given `activity` jsonb data column key. This function is useful
     when you want to reflect column name changes to activity table.
@@ -134,19 +128,14 @@ def change_column_name(
     """
     activity_table = get_activity_table(schema=schema)
     query = (
-        activity_table
-        .update()
+        update(activity_table)
         .values(
             old_data=jsonb_change_key_name(
-                activity_table.c.old_data,
-                old_column_name,
-                new_column_name
+                activity_table.c.old_data, old_column_name, new_column_name
             ),
             changed_data=jsonb_change_key_name(
-                activity_table.c.changed_data,
-                old_column_name,
-                new_column_name
-            )
+                activity_table.c.changed_data, old_column_name, new_column_name
+            ),
         )
         .where(activity_table.c.table_name == table)
     )
@@ -187,28 +176,24 @@ def add_column(conn, table, column_name, default_value=None, schema=None):
     activity_table = get_activity_table(schema=schema)
     data = {column_name: default_value}
     query = (
-        activity_table
-        .update()
+        update(activity_table)
         .values(
             old_data=sa.case(
                 (
-                    sa.cast(activity_table.c.old_data, sa.Text) != '{}',
-                    activity_table.c.old_data + data
+                    sa.cast(activity_table.c.old_data, sa.Text) != "{}",
+                    activity_table.c.old_data + data,
                 ),
-                else_=sa.cast({}, JSONB)
+                else_=sa.cast({}, JSONB),
             ),
             changed_data=sa.case(
                 (
                     sa.and_(
-                        sa.cast(
-                            activity_table.c.changed_data,
-                            sa.Text
-                        ) != '{}',
-                        activity_table.c.verb != 'update'
+                        sa.cast(activity_table.c.changed_data, sa.Text) != "{}",
+                        activity_table.c.verb != "update",
                     ),
-                    activity_table.c.changed_data + data
+                    activity_table.c.changed_data + data,
                 ),
-                else_=activity_table.c.changed_data
+                else_=activity_table.c.changed_data,
             ),
         )
         .where(activity_table.c.table_name == table)
@@ -249,8 +234,7 @@ def remove_column(conn, table, column_name, schema=None):
     activity_table = get_activity_table(schema=schema)
     remove = sa.cast(column_name, sa.Text)
     query = (
-        activity_table
-        .update()
+        update(activity_table)
         .values(
             old_data=activity_table.c.old_data - remove,
             changed_data=activity_table.c.changed_data - remove,
@@ -288,8 +272,7 @@ def rename_table(conn, old_table_name, new_table_name, schema=None):
     """
     activity_table = get_activity_table(schema=schema)
     query = (
-        activity_table
-        .update()
+        update(activity_table)
         .values(table_name=new_table_name)
         .where(activity_table.c.table_name == old_table_name)
     )

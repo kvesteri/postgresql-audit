@@ -6,13 +6,26 @@ from functools import cached_property
 
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect, text, literal_column, DDL, Table, func, event, Column, BigInteger, DateTime, Text, Integer, ForeignKey
+from sqlalchemy import (
+    inspect,
+    text,
+    literal_column,
+    DDL,
+    Table,
+    func,
+    event,
+    Column,
+    BigInteger,
+    DateTime,
+    Text,
+    Integer,
+    ForeignKey,
+)
 from sqlalchemy.orm import relationship, ColumnProperty
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
 from sqlalchemy.dialects.postgresql import ExcludeConstraint, INET, insert, JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy_utils import get_class_by_table
 
 from flask_audit_logger import alembic
 
@@ -36,6 +49,7 @@ class PGExtension:
     def drop_sql(self):
         return text(f"DROP EXTENSION IF EXISTS {self.signature}")
 
+
 @dataclass
 class PGFunction:
     schema: str
@@ -44,7 +58,8 @@ class PGFunction:
 
     @property
     def drop_sql(self):
-        return text(f'DROP FUNCTION IF EXISTS {self.schema}.{self.signature} CASCADE')
+        return text(f'DROP FUNCTION IF EXISTS "{self.schema}"."{self.signature}" CASCADE')
+
 
 @dataclass
 class PGTrigger:
@@ -55,7 +70,7 @@ class PGTrigger:
 
     @property
     def drop_sql(self):
-        return text(f'DROP TRIGGER IF EXISTS {self.signature} ON {self.table_name}')
+        return text(f'DROP TRIGGER IF EXISTS "{self.signature}" ON "{self.table_name}"')
 
 
 class AuditLogger(object):
@@ -70,10 +85,11 @@ class AuditLogger(object):
         actor_cls=None,
         schema=None,
     ):
-        self._actor_cls = actor_cls or 'User'
+        self._actor_cls = actor_cls or "User"
         self.get_actor_id = get_actor_id or _default_actor_id
         self.get_client_addr = get_client_addr or _default_client_addr
-        self.schema = schema
+        self.schema = schema or "public"
+        self.audit_logger_disabled = False
         self.db = db
         self.transaction_cls = _transaction_model_factory(db.Model, schema, self.actor_cls)
         self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
@@ -82,9 +98,9 @@ class AuditLogger(object):
         self.initialize_alembic_operations()
 
     def attach_listeners(self):
-        """ Listeners save transaction records with actor_ids when versioned tables are affected.
-         Flush events occur when a mapped object is created or modified. ORM Execute events occur
-         when an insert()/update()/delete() is passed to session.execute(). """
+        """Listeners save transaction records with actor_ids when versioned tables are affected.
+        Flush events occur when a mapped object is created or modified. ORM Execute events occur
+        when an insert()/update()/delete() is passed to session.execute()."""
         event.listen(Session, "before_flush", self.receive_before_flush)
         event.listen(Session, "do_orm_execute", self.receive_do_orm_execute)
 
@@ -99,7 +115,7 @@ class AuditLogger(object):
 
     @property
     def prefix(self):
-        return f"{self.schema}." if self.schema else ""
+        return f"{self.schema}." if self.schema != "public" else ""
 
     @cached_property
     def pg_entities(self):
@@ -130,7 +146,7 @@ class AuditLogger(object):
             versioned = table.info.get("versioned", {})
             excluded_columns = ""
             if "exclude" in versioned:
-                joined_excludes = ",".join(versioned['exclude'])
+                joined_excludes = ",".join(versioned["exclude"])
                 excluded_columns = "'{" + joined_excludes + "}'"
 
             triggers_per_table[table.name] = [
@@ -138,20 +154,32 @@ class AuditLogger(object):
                     schema=target_schema,
                     table_name=table.name,
                     signature="audit_trigger_insert",
-                    create_sql=self.render_sql_template("audit_trigger_insert.sql", table_name=table.name, excluded_columns=excluded_columns),
+                    create_sql=self.render_sql_template(
+                        "audit_trigger_insert.sql",
+                        table_name=table.name,
+                        excluded_columns=excluded_columns,
+                    ),
                 ),
                 PGTrigger(
                     schema=target_schema,
                     table_name=table.name,
                     signature="audit_trigger_update",
-                    create_sql=self.render_sql_template("audit_trigger_update.sql", table_name=table.name, excluded_columns=excluded_columns),
+                    create_sql=self.render_sql_template(
+                        "audit_trigger_update.sql",
+                        table_name=table.name,
+                        excluded_columns=excluded_columns,
+                    ),
                 ),
                 PGTrigger(
                     schema=target_schema,
                     table_name=table.name,
                     signature="audit_trigger_delete",
-                    create_sql=self.render_sql_template("audit_trigger_delete.sql", table_name=table.name, excluded_columns=excluded_columns),
-                )
+                    create_sql=self.render_sql_template(
+                        "audit_trigger_delete.sql",
+                        table_name=table.name,
+                        excluded_columns=excluded_columns,
+                    ),
+                ),
             ]
 
         return triggers_per_table
@@ -169,7 +197,7 @@ class AuditLogger(object):
         return PGFunction(
             schema=self.schema,
             signature="get_setting(setting text, fallback text)",
-            create_sql=self.render_sql_template("get_setting.sql")
+            create_sql=self.render_sql_template("get_setting.sql"),
         )
 
     @property
@@ -177,7 +205,7 @@ class AuditLogger(object):
         return PGFunction(
             schema=self.schema,
             signature="jsonb_subtract(arg1 jsonb, arg2 jsonb)",
-            create_sql=self.render_sql_template("jsonb_subtract.sql")
+            create_sql=self.render_sql_template("jsonb_subtract.sql"),
         )
 
     @property
@@ -185,7 +213,7 @@ class AuditLogger(object):
         return PGFunction(
             schema=self.schema,
             signature="jsonb_change_key_name(data jsonb, old_key text, new_key text)",
-            create_sql=self.render_sql_template("jsonb_change_key_name.sql")
+            create_sql=self.render_sql_template("jsonb_change_key_name.sql"),
         )
 
     @property
@@ -193,38 +221,30 @@ class AuditLogger(object):
         return PGFunction(
             schema=self.schema,
             signature="create_activity()",
-            create_sql=self.render_sql_template("create_activity.sql")
+            create_sql=self.render_sql_template("create_activity.sql"),
         )
 
     @contextmanager
     def disable(self, session):
-        session.execute(
-            text(
-                "SET LOCAL flask_audit_logger.enable_versioning = 'false'"
-            )
-        )
+        session.execute(text("SET LOCAL flask_audit_logger.enable_versioning = 'false'"))
+        self.audit_logger_disabled = True
         try:
             yield
         finally:
-            session.execute(
-                text(
-                    "SET LOCAL flask_audit_logger.enable_versioning = 'true'"
-                )
-            )
+            self.audit_logger_disabled = False
+            session.execute(text("SET LOCAL flask_audit_logger.enable_versioning = 'true'"))
 
-    def render_sql_template(self, tmpl_name: str, as_text: bool = True, **kwargs) -> TextClause | DDL:
-        file_contents = _read_file(f'templates/{tmpl_name}').replace('$$', '$$$$')
+    def render_sql_template(
+        self, tmpl_name: str, as_text: bool = True, **kwargs
+    ) -> TextClause | DDL:
+        file_contents = _read_file(f"templates/{tmpl_name}").replace("$$", "$$$$")
         tmpl = string.Template(file_contents)
         context = dict(schema=self.schema)
 
-        if self.schema is None:
-            context['schema_prefix'] = ''
-            context['revoke_cmd'] = ''
-        else:
-            context['schema_prefix'] = '{}.'.format(self.schema)
-            context['revoke_cmd'] = (
-                'REVOKE ALL ON {schema_prefix}activity FROM public;'
-            ).format(**context)
+        context["schema_prefix"] = "{}.".format(self.schema)
+        context["revoke_cmd"] = ("REVOKE ALL ON {schema_prefix}activity FROM public;").format(
+            **context
+        )
 
         sql = tmpl.substitute(**context, **kwargs)
 
@@ -234,17 +254,25 @@ class AuditLogger(object):
         return text(sql)
 
     def receive_do_orm_execute(self, orm_execute_state):
-        is_write = orm_execute_state.is_insert or orm_execute_state.is_update or orm_execute_state.is_delete
-        affects_versioned_table = any(m.local_table in self.versioned_tables for m in orm_execute_state.all_mappers)
+        is_write = (
+            orm_execute_state.is_insert
+            or orm_execute_state.is_update
+            or orm_execute_state.is_delete
+        )
+        affects_versioned_table = any(
+            m.local_table in self.versioned_tables for m in orm_execute_state.all_mappers
+        )
         if is_write and affects_versioned_table:
             self.save_transaction(orm_execute_state.session)
-
 
     def receive_before_flush(self, session, flush_context, instances):
         if _is_session_modified(session, self.versioned_tables):
             self.save_transaction(session)
 
     def save_transaction(self, session):
+        if self.audit_logger_disabled:
+            return
+
         values = {
             "native_transaction_id": func.txid_current(),
             "issued_at": text("now() AT TIME ZONE 'UTC'"),
@@ -255,9 +283,7 @@ class AuditLogger(object):
         stmt = (
             insert(self.transaction_cls)
             .values(**values)
-            .on_conflict_do_nothing(
-                constraint='transaction_unique_native_tx_id'
-            )
+            .on_conflict_do_nothing(constraint="transaction_unique_native_tx_id")
         )
         session.execute(stmt)
 
@@ -265,7 +291,7 @@ class AuditLogger(object):
     def actor_cls(self):
         if isinstance(self._actor_cls, str):
             if not self.db.Model:
-                raise ImproperlyConfigured('No SQLAlchemy db object')
+                raise ImproperlyConfigured("No SQLAlchemy db object")
             registry = self.db.Model.registry._class_registry
             try:
                 return registry[self._actor_cls]
@@ -286,7 +312,7 @@ def _transaction_model_factory(base, schema, actor_cls):
         actor_fk = ForeignKey(f"{actor_cls.__table__.name}.{actor_pk.name}")
 
     class AuditLogTransaction(base):
-        __tablename__ = 'transaction'
+        __tablename__ = "transaction"
 
         id = Column(BigInteger, primary_key=True)
         native_transaction_id = Column(BigInteger)
@@ -300,18 +326,19 @@ def _transaction_model_factory(base, schema, actor_cls):
 
         __table_args__ = (
             ExcludeConstraint(
-                (literal_column('native_transaction_id'), '='),
-                (literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"), '&&'),
-                name='transaction_unique_native_tx_id'
+                (literal_column("native_transaction_id"), "="),
+                (
+                    literal_column("tsrange(issued_at - INTERVAL '1 HOUR', issued_at)"),
+                    "&&",
+                ),
+                name="transaction_unique_native_tx_id",
             ),
-            {'schema': schema}
+            {"schema": schema},
         )
 
         def __repr__(self):
-            return '<{cls} id={id!r} issued_at={issued_at!r}>'.format(
-                cls=self.__class__.__name__,
-                id=self.id,
-                issued_at=self.issued_at
+            return "<{cls} id={id!r} issued_at={issued_at!r}>".format(
+                cls=self.__class__.__name__, id=self.id, issued_at=self.issued_at
             )
 
     return AuditLogTransaction
@@ -319,8 +346,8 @@ def _transaction_model_factory(base, schema, actor_cls):
 
 def _activity_model_factory(base, schema_name, transaction_cls):
     class AuditLogActivity(base):
-        __tablename__ = 'activity'
-        __table_args__ = {'schema': schema_name}
+        __tablename__ = "activity"
+        __table_args__ = {"schema": schema_name}
 
         id = Column(BigInteger, primary_key=True)
         schema = Column(Text)
@@ -329,11 +356,11 @@ def _activity_model_factory(base, schema_name, transaction_cls):
         issued_at = Column(DateTime)
         native_transaction_id = Column(BigInteger, index=True)
         verb = Column(Text)
-        old_data = Column(JSONB, default={}, server_default='{}')
-        changed_data = Column(JSONB, default={}, server_default='{}')
+        old_data = Column(JSONB, default={}, server_default="{}")
+        changed_data = Column(JSONB, default={}, server_default="{}")
         transaction_id = Column(BigInteger, ForeignKey(transaction_cls.id))
 
-        transaction = relationship(transaction_cls, backref='activities')
+        transaction = relationship(transaction_cls, backref="activities")
 
         @hybrid_property
         def data(self):
@@ -346,20 +373,9 @@ def _activity_model_factory(base, schema_name, transaction_cls):
         def data(cls):
             return cls.old_data + cls.changed_data
 
-        @property
-        def object(self):
-            table = base.metadata.tables[self.table_name]
-            cls = get_class_by_table(base, table, self.data)
-            return cls(**self.data)
-
         def __repr__(self):
-            return (
-                '<{cls} table_name={table_name!r} '
-                'id={id!r}>'
-            ).format(
-                cls=self.__class__.__name__,
-                table_name=self.table_name,
-                id=self.id
+            return ("<{cls} table_name={table_name!r} " "id={id!r}>").format(
+                cls=self.__class__.__name__, table_name=self.table_name, id=self.id
             )
 
     return AuditLogActivity
@@ -407,8 +423,8 @@ def _is_session_modified(session: Session, versioned_tables: set[Table]) -> bool
 
 
 def _is_entity_modified(entity) -> bool:
-    versioned = entity.__table__.info.get('versioned')
-    excluded_cols = set(versioned.get('exclude', []))
+    versioned = entity.__table__.info.get("versioned")
+    excluded_cols = set(versioned.get("exclude", []))
     modified_cols = {column.name for column in _modified_columns(entity)}
 
     return bool(modified_cols - excluded_cols)
@@ -425,8 +441,7 @@ def _modified_columns(obj):
             columns |= set(
                 prop.columns
                 if isinstance(prop, ColumnProperty)
-                else
-                [local for local, remote in prop.local_remote_pairs]
+                else [local for local, remote in prop.local_remote_pairs]
             )
 
     return columns

@@ -1,16 +1,18 @@
 import re
 from collections import namedtuple, defaultdict
 
+from sqlalchemy import text
 from alembic.autogenerate import renderers, comparators
 from alembic.operations import MigrateOperation, Operations
 
+
 def setup_functions_and_triggers(audit_logger):
-    """ The comparator at the end controls which functions and triggers
-    need to be added/removed based on the current audit_logger.versioned_tables. """
+    """The comparator at the end controls which functions and triggers
+    need to be added/removed based on the current audit_logger.versioned_tables."""
 
     """ PG Functions """
 
-    @Operations.register_operation('init_audit_logger_function')
+    @Operations.register_operation("init_audit_logger_function")
     class InitAuditLoggerFunctionOp(MigrateOperation):
         def __init__(self, function_signature):
             self.function_signature = function_signature
@@ -23,8 +25,7 @@ def setup_functions_and_triggers(audit_logger):
         def reverse(self):
             return RemoveAuditLoggerFunctionOp(self.function_signature)
 
-
-    @Operations.register_operation('remove_audit_logger_function')
+    @Operations.register_operation("remove_audit_logger_function")
     class RemoveAuditLoggerFunctionOp(MigrateOperation):
         def __init__(self, function_signature):
             self.function_signature = function_signature
@@ -37,31 +38,27 @@ def setup_functions_and_triggers(audit_logger):
         def reverse(self):
             return InitAuditLoggerFunctionOp(self.function_signature)
 
-
     @Operations.implementation_for(InitAuditLoggerFunctionOp)
     def init_audit_logger_function(operations, operation):
         pg_func = audit_logger.functions_by_signature[operation.function_signature]
         operations.execute(pg_func.create_sql)
-
 
     @Operations.implementation_for(RemoveAuditLoggerFunctionOp)
     def remove_audit_logger_function(operations, operation):
         pg_func = audit_logger.functions_by_signature[operation.function_signature]
         operations.execute(pg_func.drop_sql)
 
-
     @renderers.dispatch_for(InitAuditLoggerFunctionOp)
     def render_init_audit_logger_function(autogen_context, op):
-        return 'op.init_audit_logger_function(%r)' % (op.function_signature,)
-
+        return "op.init_audit_logger_function(%r)" % (op.function_signature,)
 
     @renderers.dispatch_for(RemoveAuditLoggerFunctionOp)
     def render_remove_audit_logger_function(autogen_context, op):
-        return 'op.remove_audit_logger_function(%r)' % (op.function_signature,)
+        return "op.remove_audit_logger_function(%r)" % (op.function_signature,)
 
     """ Table Triggers """
 
-    @Operations.register_operation('init_audit_logger_triggers')
+    @Operations.register_operation("init_audit_logger_triggers")
     class InitAuditLoggerTriggers(MigrateOperation):
         def __init__(
             self,
@@ -80,12 +77,10 @@ def setup_functions_and_triggers(audit_logger):
 
         def reverse(self):
             return RemoveAuditLoggerTriggers(
-                self.table_name,
-                excluded_columns=self.original_excluded_columns
+                self.table_name, excluded_columns=self.original_excluded_columns
             )
 
-
-    @Operations.register_operation('remove_audit_logger_triggers')
+    @Operations.register_operation("remove_audit_logger_triggers")
     class RemoveAuditLoggerTriggers(MigrateOperation):
         def __init__(self, table_name, excluded_columns=None):
             self.table_name = table_name
@@ -99,13 +94,11 @@ def setup_functions_and_triggers(audit_logger):
         def reverse(self):
             return InitAuditLoggerTriggers(self.table_name, excluded_columns=self.excluded_columns)
 
-
     @Operations.implementation_for(InitAuditLoggerTriggers)
     def init_audit_logger_triggers(operations, operation):
         pg_triggers = audit_logger.pg_triggers_per_table.get(operation.table_name, [])
         for pg_trigger in pg_triggers:
             operations.execute(pg_trigger.create_sql)
-
 
     @Operations.implementation_for(RemoveAuditLoggerTriggers)
     def remove_audit_logger_triggers(operations, operation):
@@ -113,26 +106,27 @@ def setup_functions_and_triggers(audit_logger):
         for pg_trigger in pg_triggers:
             operations.execute(pg_trigger.drop_sql)
 
-
     @renderers.dispatch_for(InitAuditLoggerTriggers)
     def render_init_audit_logger_triggers(autogen_context, op):
         if not op.excluded_columns:
-            return 'op.init_audit_logger_triggers(%r)' % (op.table_name,)
-        return 'op.init_audit_logger_triggers(%r, excluded_columns=%r)' % (op.table_name, op.excluded_columns)
-
+            return "op.init_audit_logger_triggers(%r)" % (op.table_name,)
+        return "op.init_audit_logger_triggers(%r, excluded_columns=%r)" % (
+            op.table_name,
+            op.excluded_columns,
+        )
 
     @renderers.dispatch_for(RemoveAuditLoggerTriggers)
     def render_remove_audit_logger_triggers(autogen_context, op):
-        return 'op.remove_audit_logger_triggers(%r)' % (op.table_name)
+        return "op.remove_audit_logger_triggers(%r)" % (op.table_name)
 
-
-    @comparators.dispatch_for('schema')
+    @comparators.dispatch_for("schema")
     def check_for_function_and_trigger_changes(autogen_context, upgrade_ops, schemas):
         check_functions(autogen_context, upgrade_ops, schemas)
         check_triggers(autogen_context, upgrade_ops, schemas)
 
     def check_functions(autogen_context, upgrade_ops, schemas):
-        funcs_sql = f"""
+        funcs_sql = text(
+            f"""
             SELECT 
                 format(
                     '%%s(%%s)',
@@ -144,6 +138,7 @@ def setup_functions_and_triggers(audit_logger):
             WHERE n.nspname = '{audit_logger.schema}'
             ORDER  BY 1;
         """
+        )
 
         funcs_in_db = {row.signature for row in autogen_context.connection.execute(funcs_sql)}
 
@@ -162,17 +157,18 @@ def setup_functions_and_triggers(audit_logger):
     Trigger = namedtuple("Trigger", ["table", "trigger_name", "definition"])
 
     def check_triggers(autogen_context, upgrade_ops, schemas):
-        triggers_sql = """
+        triggers_sql = text(
+            """
             SELECT event_object_table, trigger_name, action_statement
             FROM information_schema.triggers
             WHERE trigger_name LIKE 'audit_trigger%%'
         """
+        )
 
         triggers_per_table = defaultdict(list)
         for row in autogen_context.connection.execute(triggers_sql):
             trigger = Trigger(*row)
             triggers_per_table[trigger.table].append(trigger)
-
 
         for table in audit_logger.versioned_tables:
             trigger = next((tr for tr in triggers_per_table[table.name]), None)
@@ -202,14 +198,15 @@ def setup_functions_and_triggers(audit_logger):
                 upgrade_ops.ops.append(
                     RemoveAuditLoggerTriggers(
                         table_name,
-                        excluded_columns=_get_existing_excluded_columns(triggers[0].definition)
+                        excluded_columns=_get_existing_excluded_columns(triggers[0].definition),
                     )
                 )
+
 
 def _get_existing_excluded_columns(trigger_definition):
     matched = re.search(r"create_activity\('{(.+)}'\)", trigger_definition)
 
     if matched:
-        return matched.group(1).split(',')
+        return matched.group(1).split(",")
 
     return []

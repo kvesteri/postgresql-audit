@@ -5,7 +5,7 @@ from flask_audit_logger.migrations import add_column, remove_column
 
 
 def init_migration_ops(schema: str):
-    @Operations.register_operation('add_column_to_activity')
+    @Operations.register_operation("add_column_to_activity")
     class AddColumnToActivityOp(MigrateOperation):
         """Initialize Activity Table Triggers"""
 
@@ -27,8 +27,7 @@ def init_migration_ops(schema: str):
                 default_value=self.default_value,
             )
 
-
-    @Operations.register_operation('remove_column_from_activity')
+    @Operations.register_operation("remove_column_from_activity")
     class RemoveColumnFromRemoveActivityOp(MigrateOperation):
         """Drop Activity Table Triggers"""
 
@@ -38,12 +37,8 @@ def init_migration_ops(schema: str):
             self.default_value = default_value
 
         @classmethod
-        def remove_column_from_activity(
-            cls, operations, table_name, column_name, **kwargs
-        ):
-            op = RemoveColumnFromRemoveActivityOp(
-                table_name, column_name, **kwargs
-            )
+        def remove_column_from_activity(cls, operations, table_name, column_name, **kwargs):
+            op = RemoveColumnFromRemoveActivityOp(table_name, column_name, **kwargs)
             return operations.invoke(op)
 
         def reverse(self):
@@ -54,7 +49,6 @@ def init_migration_ops(schema: str):
                 default_value=self.default_value,
             )
 
-
     @Operations.implementation_for(AddColumnToActivityOp)
     def add_column_to_activity(operations, operation):
         add_column(
@@ -62,44 +56,36 @@ def init_migration_ops(schema: str):
             operation.table_name,
             operation.column_name,
             default_value=operation.default_value,
-            schema=schema
+            schema=schema,
         )
-
 
     @Operations.implementation_for(RemoveColumnFromRemoveActivityOp)
     def remove_column_from_activity(operations, operation):
         conn = operations.connection
-        remove_column(
-            conn,
-            operation.table_name,
-            operation.column_name,
-            schema
-        )
-
+        remove_column(conn, operation.table_name, operation.column_name, schema)
 
     @renderers.dispatch_for(AddColumnToActivityOp)
     def render_add_column_to_activity(autogen_context, op):
-        return 'op.add_column_to_activity(%r, %r, default_value=%r)' % (
+        return "op.add_column_to_activity(%r, %r, default_value=%r)" % (
             op.table_name,
             op.column_name,
             op.default_value,
         )
 
-
     @renderers.dispatch_for(RemoveColumnFromRemoveActivityOp)
     def render_remove_column_from_activity(autogen_context, op):
-        return 'op.remove_column_from_activity(%r, %r)' % (op.table_name, op.column_name)
-
+        return "op.remove_column_from_activity(%r, %r)" % (
+            op.table_name,
+            op.column_name,
+        )
 
     writer = rewriter.Rewriter()
-
 
     @writer.rewrites(ops.AddColumnOp)
     def add_column_rewrite(context, revision, op):
         table_info = op.column.table.info or {}
-        if (
-            'versioned' in table_info
-            and op.column.name not in table_info['versioned'].get('exclude', [])
+        if "versioned" in table_info and op.column.name not in table_info["versioned"].get(
+            "exclude", []
         ):
             return [
                 op,
@@ -108,14 +94,12 @@ def init_migration_ops(schema: str):
         else:
             return op
 
-
     @writer.rewrites(ops.DropColumnOp)
     def drop_column_rewrite(context, revision, op):
         column = op.to_column()
         table_info = column.table.info or {}
-        if (
-            'versioned' in table_info
-            and column.name not in table_info['versioned'].get('exclude', [])
+        if "versioned" in table_info and column.name not in table_info["versioned"].get(
+            "exclude", []
         ):
             return [
                 op,

@@ -5,10 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "flask-audit-logger"
 dynamic = ["version"]
-description = "Versioning and auditing extension for PostgreSQL and SQLAlchemy."
+description = "Audit logs using Flask-SQLAlchemy and PostgreSQL."
 readme = "README.md"
 license = "bsd-2-clause"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Garrett Massman", email = "gmassman20@gmail.com" },
 ]
@@ -19,15 +19,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "SQLAlchemy-Utils>=0.37.0",
     "SQLAlchemy>=1.4",
     "Flask>=2.3",
     "Flask-SQLAlchemy>=3.0",
@@ -42,22 +40,16 @@ path = "flask_audit_logger/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/CHANGES.rst",
-    "/docs",
+    "/CHANGES.md",
     "/flask_audit_logger",
     "/tests",
 ]
-exclude = [
-    "/docs/_build",
-]
+
+[tool.black]
+line-length = 99
 
 [tool.isort]
+profile = "black"
+line_length = 99
 known_first_party = ["flask_audit_logger", "tests"]
-line_length       = 79
 multi_line_output = 3
-order_by_type     = false
-
-[tool.pytest.ini_options]
-filterwarnings = [
-    'error:.*:DeprecationWarning:flask_audit_logger',
-]
