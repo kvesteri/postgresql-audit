@@ -21,6 +21,8 @@ Compared to existing solutions PostgreSQL-Audit has the following charasteristic
 
 .. _SQLAlchemy-Continuum: https://github.com/kvesteri/SQLAlchemy-Continuum
 
+`Documentation <https://postgresql-audit.readthedocs.io/en/stable/index.html>`_
+
 
 Installation
 ------------
