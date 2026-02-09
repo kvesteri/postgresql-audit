@@ -7,11 +7,7 @@ BEGIN
     _transaction_id := (
         SELECT id
         FROM ${schema_prefix}transaction
-        WHERE
-            native_transaction_id = txid_current() AND
-            issued_at >= (NOW() - INTERVAL '1 day')
-        ORDER BY issued_at DESC
-        LIMIT 1
+        WHERE native_transaction_id = pg_current_xact_id()
     );
 
     IF TG_ARGV[0] IS NOT NULL THEN
@@ -28,7 +24,7 @@ BEGIN
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
-            txid_current() AS native_transaction_id,
+            pg_current_xact_id() AS native_transaction_id,
             LOWER(TG_OP) AS verb,
             old_data - excluded_cols AS old_data,
             new_data - old_data - excluded_cols AS changed_data,
@@ -60,7 +56,7 @@ BEGIN
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
-            txid_current() AS native_transaction_id,
+            pg_current_xact_id() AS native_transaction_id,
             LOWER(TG_OP) AS verb,
             '{}'::jsonb AS old_data,
             row_to_json(new_table.*)::jsonb - excluded_cols AS changed_data,
@@ -76,7 +72,7 @@ BEGIN
             TG_TABLE_NAME::text AS table_name,
             TG_RELID AS relid,
             statement_timestamp() AT TIME ZONE 'UTC' AS issued_at,
-            txid_current() AS native_transaction_id,
+            pg_current_xact_id() AS native_transaction_id,
             LOWER(TG_OP) AS verb,
             row_to_json(old_table.*)::jsonb - excluded_cols AS old_data,
             '{}'::jsonb AS changed_data,

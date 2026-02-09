@@ -13,6 +13,8 @@ PostgreSQL-Audit has been tested against the following Python platforms.
 - cPython 3.10
 - cPython 3.11
 
+PostgreSQL-Audit requires PostgreSQL 13 or newer.
+
 
 Installing an official release
 ------------------------------

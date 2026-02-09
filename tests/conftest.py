@@ -3,7 +3,7 @@ import os
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import close_all_sessions, declarative_base, sessionmaker
 
 from postgresql_audit import VersioningManager
@@ -38,9 +38,6 @@ def base():
 def engine(dns):
     engine = create_engine(dns, future=True)
     engine.echo = bool(os.environ.get('POSTGRESQL_AUDIT_TEST_ECHO'))
-
-    with engine.begin() as conn:
-        conn.execute(text('CREATE EXTENSION IF NOT EXISTS btree_gist'))
 
     yield engine
 

@@ -22,7 +22,7 @@ class TestActivityCreation(object):
             'age': 15
         }
         assert activity['table_name'] == 'user'
-        assert activity['native_transaction_id'] > 0
+        assert activity['native_transaction_id']
         assert activity['verb'] == 'insert'
 
     def test_commit_after_disable_and_rollback(

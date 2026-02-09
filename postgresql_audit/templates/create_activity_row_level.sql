@@ -8,15 +8,11 @@ BEGIN
     audit_row.table_name = TG_TABLE_NAME::text;
     audit_row.relid = TG_RELID;
     audit_row.issued_at = statement_timestamp() AT TIME ZONE 'UTC';
-    audit_row.native_transaction_id = txid_current();
+    audit_row.native_transaction_id = pg_current_xact_id();
     audit_row.transaction_id = (
         SELECT id
         FROM ${schema_prefix}transaction
-        WHERE
-            native_transaction_id = txid_current() AND
-            issued_at >= (NOW() - INTERVAL '1 day')
-        ORDER BY issued_at DESC
-        LIMIT 1
+        WHERE native_transaction_id = pg_current_xact_id()
     );
     audit_row.verb = LOWER(TG_OP);
     audit_row.old_data = '{}'::jsonb;
