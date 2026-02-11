@@ -3,6 +3,15 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
+0.18.0 (TBD)
+^^^^^^^^^^^^^^^^^^^
+
+- **BREAKING CHANGE**: Dropped support for PostgreSQL 9.x, 10, 11 and 12. PostgreSQL 13+ is now required.
+- Replace deprecated ``txid_current()`` with ``pg_current_xact_id()``.
+- Replace ``ExcludeConstraint`` on transaction table with simpler ``UniqueConstraint`` on ``native_transaction_id``.
+- Change type of ``native_transaction_id`` to ``xid8`` on transaction and activity tables.
+- Remove dependency on ``btree_gist`` PostgreSQL extension.
+
 0.17.1 (2023-11-06)
 ^^^^^^^^^^^^^^^^^^^
 

@@ -34,7 +34,7 @@ class TestActivityCreationWithColumnExclusion(object):
             'name': 'John'
         }
         assert activity['table_name'] == 'user'
-        assert activity['native_transaction_id'] > 0
+        assert activity['native_transaction_id']
         assert activity['verb'] == 'insert'
 
     def test_update(self, user, session):
@@ -48,7 +48,7 @@ class TestActivityCreationWithColumnExclusion(object):
             'name': 'John',
         }
         assert activity['table_name'] == 'user'
-        assert activity['native_transaction_id'] > 0
+        assert activity['native_transaction_id']
         assert activity['verb'] == 'update'
 
     def test_delete(self, user, session):
@@ -61,5 +61,5 @@ class TestActivityCreationWithColumnExclusion(object):
             'name': 'John',
         }
         assert activity['table_name'] == 'user'
-        assert activity['native_transaction_id'] > 0
+        assert activity['native_transaction_id']
         assert activity['verb'] == 'delete'

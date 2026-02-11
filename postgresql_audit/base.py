@@ -6,19 +6,33 @@ from weakref import WeakSet
 
 import sqlalchemy as sa
 from sqlalchemy import orm, text
-from sqlalchemy.dialects.postgresql import (
-    array,
-    ExcludeConstraint,
-    INET,
-    insert,
-    JSONB
-)
+from sqlalchemy.dialects.postgresql import array, INET, insert, JSONB
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.types import UserDefinedType
 from sqlalchemy_utils import get_class_by_table
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+class XID8(UserDefinedType):
+    cache_ok = True
+
+    def get_col_spec(self, **kw):
+        return "XID8"
+
+    def bind_processor(self, dialect):
+        def process(value):
+            return value
+
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            return value
+
+        return process
 
 
 class ImproperlyConfigured(Exception):
@@ -60,22 +74,15 @@ def transaction_base(Base, schema):
     class Transaction(Base):
         __abstract__ = True
         id = sa.Column(sa.BigInteger, primary_key=True)
-        native_transaction_id = sa.Column(sa.BigInteger)
+        native_transaction_id = sa.Column(XID8())
         issued_at = sa.Column(sa.DateTime)
         client_addr = sa.Column(INET)
 
         @declared_attr
         def __table_args__(cls):
             return (
-                ExcludeConstraint(
-                    (cls.native_transaction_id, '='),
-                    (
-                        sa.func.tsrange(
-                            cls.issued_at - sa.text("INTERVAL '1 hour'"),
-                            cls.issued_at,
-                        ),
-                        '&&'
-                    ),
+                sa.UniqueConstraint(
+                    cls.native_transaction_id,
                     name='transaction_unique_native_tx_id'
                 ),
                 {'schema': schema}
@@ -101,7 +108,7 @@ def activity_base(Base, schema, transaction_cls):
         table_name = sa.Column(sa.Text)
         relid = sa.Column(sa.Integer)
         issued_at = sa.Column(sa.DateTime)
-        native_transaction_id = sa.Column(sa.BigInteger, index=True)
+        native_transaction_id = sa.Column(XID8(), index=True)
         verb = sa.Column(sa.Text)
         old_data = sa.Column(JSONB, default={}, server_default='{}')
         changed_data = sa.Column(JSONB, default={}, server_default='{}')
@@ -303,7 +310,7 @@ class VersioningManager(object):
 
         values = convert_callables(self.get_transaction_values())
         if values:
-            values['native_transaction_id'] = sa.func.txid_current()
+            values['native_transaction_id'] = sa.func.pg_current_xact_id()
             values['issued_at'] = sa.text("now() AT TIME ZONE 'UTC'")
             stmt = (
                 insert(table)

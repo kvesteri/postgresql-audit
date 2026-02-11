@@ -26,7 +26,7 @@ class TestCustomSchemaactivityCreation(object):
             'age': 15
         }
         assert activity['table_name'] == 'user'
-        assert activity['native_transaction_id'] > 0
+        assert activity['native_transaction_id']
         assert activity['verb'] == 'insert'
 
     def test_activity_after_commit(
