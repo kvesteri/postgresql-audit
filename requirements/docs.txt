@@ -19,7 +19,7 @@ docutils==0.20.1
     # via sphinx
 furo==2023.7.26
     # via -r docs.in
-idna==3.4
+idna==3.7
     # via requests
 imagesize==1.4.1
     # via sphinx
