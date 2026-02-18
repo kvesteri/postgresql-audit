@@ -33,7 +33,7 @@ psycopg2==2.9.7
     # via -r test-base.in
 pytest==7.4.0
     # via -r test-base.in
-werkzeug==2.3.6
+werkzeug==3.1.5
     # via
     #   flask
     #   flask-login
