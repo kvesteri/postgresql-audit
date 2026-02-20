@@ -6,7 +6,7 @@
 #    pip-compile-multi
 #
 -r test-base.txt
-flask-sqlalchemy==2.5.1
+flask-sqlalchemy==3.0.0
     # via -r requirements/test-min.in
 sqlalchemy==1.4.49
     # via
