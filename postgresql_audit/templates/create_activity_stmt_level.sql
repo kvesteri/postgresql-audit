@@ -1,6 +1,5 @@
 CREATE OR REPLACE FUNCTION ${schema_prefix}create_activity() RETURNS TRIGGER AS $$
 DECLARE
-    audit_row ${schema_prefix}activity;
     excluded_cols text[] = ARRAY[]::text[];
     _transaction_id BIGINT;
 BEGIN
