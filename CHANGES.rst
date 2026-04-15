@@ -3,7 +3,7 @@ Changelog
 
 Here you can see the full list of changes between each PostgreSQL-Audit release.
 
-0.18.0 (TBD)
+0.18.0 (2026-04-15)
 ^^^^^^^^^^^^^^^^^^^
 
 - **BREAKING CHANGE**: Dropped support for PostgreSQL 9.x, 10, 11 and 12. PostgreSQL 13+ is now required.
