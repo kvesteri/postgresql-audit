@@ -12,7 +12,7 @@ Unreleased
 0.18.0 (2026-04-15)
 ^^^^^^^^^^^^^^^^^^^
 
-- **BREAKING CHANGE**: Dropped support for PostgreSQL 9.x, 10, 11 and 12. PostgreSQL 13+ is now required.
+- **BREAKING CHANGE**: Dropped support for PostgreSQL 11 and 12. PostgreSQL 13+ is now required.
 - Replace deprecated ``txid_current()`` with ``pg_current_xact_id()``.
 - Replace ``ExcludeConstraint`` on transaction table with simpler ``UniqueConstraint`` on ``native_transaction_id``.
 - Change type of ``native_transaction_id`` to ``xid8`` on transaction and activity tables.
