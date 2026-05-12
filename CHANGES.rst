@@ -6,7 +6,7 @@ Here you can see the full list of changes between each PostgreSQL-Audit release.
 Unreleased
 ^^^^^^^^^^
 
-- **BREAKING CHANGE**: Dropped support for Python 3.8.
+- **BREAKING CHANGE**: Dropped support for Python 3.8 and 3.9.
 
 
 0.18.0 (2026-04-15)

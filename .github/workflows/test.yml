@@ -37,13 +37,8 @@ jobs:
             postgresql-version: 16
             tox: py-max
 
-          - name: "Python 3.9"
-            python: "3.9"
-            postgresql-version: 16
-            tox: py-max
-
           - name: "Minimum versions"
-            python: "3.9"
+            python: "3.10"
             postgresql-version: 13
             tox: py-min
 
