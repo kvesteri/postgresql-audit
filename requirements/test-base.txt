@@ -36,7 +36,7 @@ pygments==2.20.0
     # via pytest
 pytest==9.0.3
     # via -r test-base.in
-werkzeug==3.1.6
+werkzeug==3.1.9
     # via
     #   flask
     #   flask-login
