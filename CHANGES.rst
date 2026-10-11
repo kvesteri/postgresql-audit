@@ -7,6 +7,7 @@ Unreleased
 ^^^^^^^^^^
 
 - **BREAKING CHANGE**: Dropped support for Python 3.8 and 3.9.
+- Reference unique constraint on transaction.native_transaction_id with the name of the column instead of the constraint name.
 
 
 0.18.0 (2026-04-15)

@@ -316,7 +316,7 @@ class VersioningManager(object):
                 insert(table)
                 .values(**values)
                 .on_conflict_do_nothing(
-                    constraint='transaction_unique_native_tx_id'
+                    index_elements=('native_transaction_id',)
                 )
             )
             session.execute(stmt)
